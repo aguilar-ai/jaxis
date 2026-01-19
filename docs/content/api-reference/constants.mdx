@@ -1,0 +1,32 @@
+---
+title: Constants
+description: Default tolerances, RNG seed, dtype, and trial count.
+---
+
+# `jaxis.constants`
+
+Jaxis centralizes its defaults in `jaxis.constants`. You can override most of these at
+call time (e.g. `with_tolerances(...)`, `with_trials(...)`), but the constants are useful
+for consistent configuration across a codebase.
+
+## Import
+
+```py copy
+from jaxis.constants import (
+  DEFAULT_ATOL,
+  DEFAULT_DTYPE,
+  DEFAULT_RNG_SEED,
+  DEFAULT_RTOL,
+  DEFAULT_TRIALS,
+)
+```
+
+## Values
+
+| Name | Meaning |
+| --- | --- |
+| `DEFAULT_RNG_SEED` | Base seed for randomized trials. |
+| `DEFAULT_ATOL` | Absolute tolerance used in metric evaluation. |
+| `DEFAULT_RTOL` | Relative tolerance used in metric evaluation. |
+| `DEFAULT_TRIALS` | Default number of randomized trials for `*_trials`. |
+| `DEFAULT_DTYPE` | Default dtype used for generated inputs (float32). |

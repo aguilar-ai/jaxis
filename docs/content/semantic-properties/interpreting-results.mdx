@@ -1,0 +1,88 @@
+---
+title: Interpreting Results
+description: How to read boolean outcomes, TestState objects, and errors raised by semantic property checks.
+---
+
+# Interpreting Results
+
+Running a semantic property check yields either a boolean (single-trial helpers) or a
+`TestState` (multi-trial helpers). This page explains what those values mean, how to
+reproduce failures, and which errors indicate specification problems rather than
+violations of the property itself.
+
+## Result Types
+
+- `is_*` helpers return a boolean for a single randomized trial.
+- `is_*_trials` helpers repeat the experiment and return a `TestState` with full context.
+
+If you are validating a critical path, prefer the multi-trial variant so that failures
+capture enough information to debug deterministically.
+
+## Understanding `TestState`
+
+`TestState` is a NamedTuple with three fields:
+
+| Field | Meaning |
+| --- | --- |
+| `passed` | `True` when all trials satisfied the property. `False` stops the loop. |
+| `rng` | The `jax.Array` key used for the failing trial. `None` when all trials passed. |
+| `trial_index` | Zero-based index of the trial that failed. `None` when all trials passed. |
+
+Example:
+
+```py copy
+state = is_permutation_equivariant_trials(fn, trials=64)
+if not state.passed:
+  print(f"Failed on trial {state.trial_index} with rng={state.rng}")
+```
+
+Even when `passed=True`, keep the `trials` count high enough to cover the floating-point
+noise and rare branches in your model.
+
+## Re-running a Failing Trial
+
+Use the stored RNG key to reproduce the original inputs:
+
+```py copy
+state = is_mask_invariant_trials(fn, trials=32)
+if not state.passed and state.rng is not None:
+  rerun = is_mask_invariant(fn, rng=state.rng)
+  assert rerun is False  # triggers a debugger right away
+```
+
+You can also call `fn.with_generated_input(...)` manually with the logged RNG key if you
+need to inspect intermediate tensors.
+
+## Boolean Results
+
+Single-trial helpers return `True` or `False`. A `False` value is equivalent to a
+`TestState(passed=False, rng=<current_rng>, trial_index=0)`. Treat single-trial failures
+as an early warning and re-run the multi-trial helper before modifying code.
+
+## Exceptions vs. Failures
+
+- **Exceptions** (`MaskShapeMismatchError`, `OutputAxisMissingError`,
+  `InputShapeTooSmallError`, etc.) point to a misconfigured spec: axis lengths disagree,
+  tuples are not indexed, or a mask axis is missing.
+- **Boolean/TestState failures** mean the property was evaluated successfully but the
+  function violated the constraint on at least one trial.
+
+When in doubt, fix exceptions first — otherwise the test never reaches the semantics you
+care about.
+
+## Next Steps After a Failure
+
+1. Confirm the input/output specs in your `DeferredCall` match the axes you intended.
+2. Reproduce the exact failure using the stored RNG key.
+3. Inspect upstream transformations (normalization, masking, positional features) along
+   the axis under test.
+4. Adjust tolerances only after verifying the math; overly loose tolerances mask real
+   regressions.
+
+## Additional Resources
+
+- [Property Reference](/semantic-properties/property-reference) to map results to each
+  property.
+- [Defining Semantic Properties](/semantic-properties) for the conceptual model.
+- [Advanced Usage](/semantic-properties/advanced-usage) for customizing metrics and specs.
+- [Concepts](/concepts) for default tolerances and trial behavior.

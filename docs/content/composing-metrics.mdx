@@ -1,0 +1,36 @@
+---
+title: Composing Metrics
+description: A guide on how to compose metrics to create more complex test specifications.
+---
+
+# Composing Metrics
+
+When you test for a semantic property using one of the predefined functions, you are
+reusing a preconfigured test specification that is written using the `jaxis.dsl.Metric`
+enum. The enum can be compared and composed using the `&` (AND) and `|` (OR) operators to
+create more complex test specifications.
+
+```python
+from jaxis.dsl import Metric
+
+spec = (Metric.P99 < 1.0) & (Metric.MAX < 3.0) # The parentheses are not optional.
+```
+
+These metrics can then be passed to any function from `jaxis.semantics` that accepts a 
+`test_spec` argument.
+
+```python
+from jaxis.semantics import is_elementwise_independent
+
+is_elementwise_independent(fn, test_spec=spec)
+```
+
+## Additional Resources
+
+- [Metrics](/metrics) for the full catalog of available checks.
+- [Designing a Testing Strategy](/designing-testing-strategy) for guidance on choosing
+  combinations.
+- [Advanced Usage](/semantic-properties/advanced-usage) for where custom specs fit into
+  semantic checks.
+- [Interpreting Results](/semantic-properties/interpreting-results) to read pass/fail
+  output.

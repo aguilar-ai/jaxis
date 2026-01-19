@@ -1,0 +1,60 @@
+---
+title: Advanced Usage
+description: Custom specs, stricter gates, and per-check tuning.
+---
+
+# Advanced Usage
+
+Archetypes are presets. You can keep them as‑is, or override any check with your own
+Metric DSL spec. This is the intended way to “turn the dial” for strictness.
+
+## Override specs on construction
+
+```py copy
+from jaxis.archetype import Batch
+from jaxis.dsl.ast import Metric as M
+
+spec_perm = (M.P99 <= 1.0) & (M.FRACTION_OVER_1 <= 1e-3) & (M.MAX <= 2.0)
+spec_elem = (M.LEAKAGE_ENERGY_RATIO <= 1e-3) & (M.OFF_TARGET_MAX_ABS <= 1e-6)
+
+arch = Batch(
+  loss,
+  permutation_spec=spec_perm,
+  elementwise_spec=spec_elem,
+)
+```
+
+## Override specs after construction
+
+```py copy
+arch = Batch(loss)
+arch = arch.with_permutation_spec(spec_perm)
+arch = arch.with_elementwise_spec(spec_elem)
+```
+
+The same pattern exists for:
+- `Mask(..., test_spec=...)` or `.with_test_spec(...)`
+- `Time(..., triangular_spec=..., permutation_spec=...)`
+
+## Using the defaults as a starting point
+
+Default specs are exported from `jaxis.archetype`:
+
+```py copy
+from jaxis.archetype import (
+  ELEMENTWISE_INDEPENDENT_SPEC,
+  PERMUTATION_EQUIVARIANT_SPEC,
+)
+from jaxis.dsl.ast import Metric as M
+
+spec_perm = PERMUTATION_EQUIVARIANT_SPEC & (M.REL_L2 <= 1e-5)
+```
+
+## When to change the spec
+
+- **Floating-point instability**: loosen `MAX` or allow a tiny `FRACTION_OVER_1`.
+- **Sensitivity to broad drift**: add `REL_L2` or `COSINE_DISTANCE`.
+- **Locality checks**: add `ON_TARGET_MAG` to guard leakage ratios.
+- **Probability outputs**: add `JS_DIVERGENCE` or `KL_DIVERGENCE`.
+
+Use the defaults first; only tune once you know why a failure is happening.

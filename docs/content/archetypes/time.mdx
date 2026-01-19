@@ -1,0 +1,86 @@
+---
+title: Time Archetype
+description: The semantic bundle for causal/time axes.
+---
+
+import { Callout } from "nextra/components";
+
+# Time Archetype
+
+The Time archetype checks **triangular dependence** (causal prefix safety): outputs at
+time `t` must not depend on inputs from the future.
+
+Optionally, it can also check **permutation equivariance** if you treat the axis as a
+set rather than a sequence (rare for time, but sometimes appropriate for unordered
+temporal batches).
+
+<Callout type="warning">
+Most time axes are *not* permutation equivariant. Only enable it if order truly should
+not matter.
+</Callout>
+
+## Usage
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.archetype import Time
+from jaxis.common_typing import Sentinel
+
+
+def causal_conv(x):
+  # toy causal op: cumulative sum
+  return jnp.cumsum(x, axis=1)
+
+
+arch = (
+  Time(causal_conv)
+  .with_input_spec(("x", (16, 128, 32), 1, Sentinel.DEFAULT))  # time axis is 1
+  .with_output_spec(1)
+)
+
+result = arch.verify()
+print(result.passed)
+```
+
+## What the Time archetype checks
+
+`Time.verify()` runs:
+
+- `is_triangular_dependent_trials(...)`
+- (optional) `is_permutation_equivariant_trials(...)` if enabled
+
+## Custom specs
+
+```py copy
+from jaxis.archetype import Time
+from jaxis.dsl.ast import Metric as M
+
+tri_spec = (M.P99 <= 1.0) & (M.FRACTION_OVER_1 <= 1e-3) & (M.OFF_TARGET_MAX_ABS <= 1e-6)
+perm_spec = (M.P99 <= 1.0) & (M.MAX <= 2.0)
+
+arch = Time(
+  causal_conv,
+  triangular_spec=tri_spec,
+  permutation_spec=perm_spec,
+  permutation_equivariant=False,
+)
+```
+
+Or after construction:
+
+```py copy
+arch = Time(causal_conv).with_triangular_spec(tri_spec)
+```
+
+## When it should fail
+
+- using future tokens to compute past outputs,
+- global normalizations across time,
+- attention without causal masking.
+
+## Related
+
+- [Triangular Dependent](/semantic-properties/triangular-dependent)
+- [Permutation Equivariant](/semantic-properties/permutation-equivariant)
+- [Interpreting Results](/archetypes/interpreting-results)

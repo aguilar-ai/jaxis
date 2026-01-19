@@ -1,0 +1,56 @@
+---
+title: Permutation Equivariant
+description: Check that permutations commute with the function along an axis.
+---
+
+# `is_permutation_equivariant`
+
+Permutation equivariance means permuting the input along an axis permutes the output
+along the corresponding axis in the same way.
+
+## Imports
+
+```py copy
+from jaxis.semantics import (
+  is_permutation_equivariant,
+  is_permutation_equivariant_trials,
+)
+```
+
+## Signatures (simplified)
+
+```py
+is_permutation_equivariant(fn, *, rng=..., test_spec=..., atol=..., rtol=..., dtype=...) -> bool
+is_permutation_equivariant_trials(
+  fn,
+  trials=...,
+  *,
+  rng=...,
+  test_spec=...,
+  atol=...,
+  rtol=...,
+  dtype=...,
+) -> TestState
+```
+
+## Example
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import is_permutation_equivariant
+
+
+def square(x):
+  return jnp.square(x)
+
+
+fn = DeferredCall(
+  square,
+  input_spec=("x", (128, 256), -1),
+  output_spec=-1,
+)
+
+assert is_permutation_equivariant(fn)
+```

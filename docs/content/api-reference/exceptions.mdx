@@ -1,0 +1,35 @@
+---
+title: Exceptions
+description: Common exceptions raised by Jaxis and what they mean.
+---
+
+# `jaxis.exceptions`
+
+Jaxis raises domain-specific exceptions to make failures actionable (bad specs, missing
+args, invalid shapes, etc.).
+
+## Construction / Spec Errors
+
+These usually indicate that the `DeferredCall` or an archetype was configured incorrectly.
+
+- `MissingArgumentsError`: required keyword args for your function were not provided.
+- `InvalidArgumentsError`: you provided a kwarg that your function does not accept.
+- `InputAlreadyProvidedError`: you provided a value for an argument that Jaxis is supposed
+  to generate (via `input_spec`).
+- `InputSpecMissingError`: archetype missing `with_input_spec(...)`.
+- `OutputSpecMissingError`: archetype missing `with_output_spec(...)`.
+- `PositionalArgumentsProvidedError`: positional arguments are not supported.
+
+## Shape / Axis Errors
+
+These usually indicate that your declared axis does not match runtime shapes.
+
+- `OutputAxisMissingError`: the output is missing the axis you declared.
+- `MaskShapeMismatchError`: mask axis shape does not match the input axis shape.
+- `InputShapeTooSmallError`: the input axis is too small to perturb meaningfully.
+
+## Debugging Checklist
+
+1. Re-check your `input_spec` argument names and shapes.
+2. Confirm the axis you passed is actually present at runtime.
+3. For tuple outputs, confirm you used `(axis, tuple_index)` in `output_spec`.

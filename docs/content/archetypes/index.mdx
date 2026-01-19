@@ -1,0 +1,34 @@
+---
+title: Archetypes
+description: Bundled semantic guarantees for common axis patterns.
+---
+
+# Archetypes
+
+An archetype is a *bundle of semantic properties* that usually travel together. It is
+the fast path: you say what kind of axis you have (batch, time, mask), and Jaxis runs the
+appropriate semantic checks with sensible defaults.
+
+Why archetypes exist:
+- They encode common expectations (e.g. batch axes should be elementwise independent and
+  permutation equivariant).
+- They reduce decision fatigue: no need to hand‑craft a spec for each property unless you
+  want to.
+- They surface meaningful failures with a single call to `verify`.
+
+Archetypes do **not** replace semantic properties. They are the “preset.” When you need
+precision, you should compose property checks directly or override the spec used by the
+archetype.
+
+## Available Archetypes
+
+- **Batch** — for sample axes that should be independent and order‑agnostic.
+- **Time** — for causal / prefix‑safe axes (optionally also permutation equivariant).
+- **Mask** — for masked/padded axes where masked values must not leak into unmasked
+  outputs.
+
+## Where to go next
+
+- [Batch Archetype](/archetypes/batch) for the most common preset.
+- [Interpreting Results](/archetypes/interpreting-results) to understand outputs.
+- [Advanced Usage](/archetypes/advanced-usage) to override the default specs.

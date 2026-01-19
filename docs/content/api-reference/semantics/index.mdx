@@ -1,0 +1,43 @@
+---
+title: Semantic Properties
+description: User-facing semantic checks and their parameters.
+---
+
+import { Callout } from "nextra/components";
+
+# `jaxis.semantics`
+
+Semantic properties are the atomic checks in Jaxis. Each property exposes two helpers:
+
+- `is_*`: run a single randomized trial and return a `bool`
+- `is_*_trials`: repeat over multiple trials and return a `TestState`
+
+All semantic checks take a [`DeferredCall`](/api-reference/fn/caller).
+
+## Available Checks
+
+| Property | Single trial | Multiple trials |
+| --- | --- | --- |
+| [Elementwise Independent](/api-reference/semantics/elementwise_independent) | `is_elementwise_independent` | `is_elementwise_independent_trials` |
+| [Permutation Equivariant](/api-reference/semantics/permutation_equivariant) | `is_permutation_equivariant` | `is_permutation_equivariant_trials` |
+| [Permutation Invariant](/api-reference/semantics/permutation_invariant) | `is_permutation_invariant` | `is_permutation_invariant_trials` |
+| [Mask Invariant](/api-reference/semantics/mask_invariant) | `is_mask_invariant` | `is_mask_invariant_trials` |
+| [Triangular Dependent](/api-reference/semantics/triangular_dependent) | `is_triangular_dependent` | `is_triangular_dependent_trials` |
+
+## Common Parameters
+
+Most checks share the same knobs:
+
+- `rng`: base random key (for reproducibility)
+- `test_spec`: a `Metric` DSL expression (pass/fail gate)
+- `atol`, `rtol`: tolerances used when evaluating metrics
+- `dtype`: dtype used for generated inputs
+
+Multi-trial variants add:
+
+- `trials`: how many randomized runs to attempt
+
+<Callout type="info">
+For conceptual explanations and examples, see the guide pages under
+[Semantic Properties](/semantic-properties).
+</Callout>

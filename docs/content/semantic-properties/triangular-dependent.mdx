@@ -1,0 +1,89 @@
+---
+title: Triangular Dependent
+description: 
+---
+
+import TriangularDependent from '@/components/triangular-dependent'
+
+# Triangular Dependent
+
+_Also known as Causal, Temporal Dependence._
+
+<TriangularDependent />
+
+$$
+\forall\, j > i\ \colon\ \frac{\partial y_i}{\partial x_j} = 0
+$$
+
+Triangular Dependence means that each output in a sequence can only "see" inputs that came
+before it or at the same position. If you're computing the fifth output, it can depend on 
+inputs one through five, but not on inputs six, seven, and so on. Information flows 
+forward through the sequence, never backward.
+
+More precisely, for a function mapping a sequence of n inputs to n outputs, triangular
+dependence requires that output $i$ is a function only of inputs $1$ through $i$. Changing 
+input $j$ can only affect outputs at positions $j$ or later; it cannot retroactively 
+influence earlier outputs. This is the property that makes autoregressive generation 
+possible: you can compute outputs one at a time, left to right, without needing to know 
+future inputs.
+
+Formally, consider the Jacobian matrix $J$ where entry 
+$J_{ij} = \frac{\partial y_i} {\partial x_j}$. Triangular dependence requires that 
+$J_{ij} = 0$ whenever $j > i$; the Jacobian is lower-triangular. Equivalently, if we 
+denote the function as $f$ and let $x_{≤i}$ represent the prefix of inputs up to position 
+$i$, then triangular dependence means $y_i = g_i(x_{≤i})$ for some function $g_i$ that 
+depends only on that prefix. This structure is preserved under composition: composing two 
+triangular-dependent functions yields another triangular-dependent function.
+
+## Usage
+
+Call `jaxis.semantics.is_triangular_dependent` for a single randomized perturbation or
+`is_triangular_dependent_trials` for a reproducible `TestState`. Provide the sequence axis
+via `DeferredCall`; if your function changes sequence length (pooling, striding), pass an
+`input_to_output_pos` callback so the checker knows how prefixes on the input map to
+prefixes on the output.
+
+Refer to
+[Interpreting Results](/semantic-properties/interpreting-results) after the run to make
+sense of the returned boolean or `TestState`.
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import (
+  is_triangular_dependent,
+  is_triangular_dependent_trials,
+)
+
+
+def prefix_sum(x):
+  return jnp.cumsum(x, axis=-1)
+
+
+cumsum_fn = DeferredCall(
+  prefix_sum,
+  input_spec=("x", (8, 256), -1),
+  output_spec=-1,
+)
+
+assert is_triangular_dependent(cumsum_fn)
+state = is_triangular_dependent_trials(cumsum_fn, trials=12)
+print(state.passed)
+```
+
+If the output is shorter than the input (for example, causal convolutions that stride by
+2), supply `input_to_output_pos=lambda j: j // 2` so the verifier stops comparing outputs
+once they fall off the shorter axis. Autoregressive decoders, cumulative transforms, and
+time-aware layers should all pass; bi-directional layers, centered convolutions, and any
+mechanism that peeks ahead will fail the check.
+
+## Additional Resources
+
+- [Mask Invariant](/semantic-properties/mask-invariant) for tests involving padding and
+  attention masks.
+- [Property Reference](/semantic-properties/property-reference) to compare with other
+  sequence properties.
+- [Interpreting Results](/semantic-properties/interpreting-results) to diagnose failures.
+- [Designing a Testing Strategy](/designing-testing-strategy) for choosing metrics that
+  suit causal checks.

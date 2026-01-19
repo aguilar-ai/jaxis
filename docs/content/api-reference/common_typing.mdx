@@ -1,0 +1,82 @@
+---
+title: Types
+description: User-facing specs and result containers.
+---
+
+import { Callout } from "nextra/components";
+
+# `jaxis.common_typing`
+
+This module contains the user-facing type shapes used throughout the library:
+
+- Input/output axis specifications (`InputSpec`, `OutputSpec`)
+- The mask sentinel (`Sentinel`)
+- Multi-trial results (`TestState`)
+
+## `InputSpec`
+
+An `InputSpec` declares which argument Jaxis should generate test data for, and which axis
+in that array the property should be evaluated along.
+
+Accepted forms:
+
+- `("arg_name", shape)`
+- `("arg_name", shape, axis)`
+- `("arg_name", shape, axis, sentinel)`
+
+Where:
+
+- `shape` is a tuple of ints, e.g. `(128, 32)`.
+- `axis` is an integer axis index; use `-1` for the last axis.
+- `sentinel` is usually omitted, except for mask checks.
+
+```py copy
+from jaxis.common_typing import Sentinel
+
+("x", (128, 32), 0)
+("mask", (128,), 0, Sentinel.MASK)
+```
+
+## `OutputSpec`
+
+An `OutputSpec` declares which output axis should be checked.
+
+Accepted forms:
+
+- `axis` (an `int`, e.g. `0` or `-1`)
+- `(axis, tuple_index)` if the function returns a tuple and you want to select an item
+
+```py copy
+0
+(-1, 0)  # check axis -1 on the first tuple element
+```
+
+## `Sentinel`
+
+`Sentinel` marks special inputs that semantic checks treat differently.
+
+- `Sentinel.DEFAULT`: a normal input axis
+- `Sentinel.MASK`: a mask input axis (used by mask invariance)
+
+## `TestState`
+
+The `*_trials(...)` functions in [`jaxis.semantics`](/api-reference/semantics) return a
+`TestState`.
+
+Always-present fields:
+
+- `passed`: whether all trials passed
+- `test_spec`: the gate expression that was evaluated
+
+On failure, these are typically set:
+
+- `trial_index`: which trial failed first
+- `rng`: the random key for that failing trial
+
+Many metric values may also be attached (e.g. `p99`, `max_abs_delta`, `rel_l2`) depending
+on the gate and the property.
+
+<Callout type="info">
+You may see internal helper types like `InputSpec_` / `OutputSpec_` in stack traces; those
+are implementation details and are not part of the public API.
+</Callout>

@@ -1,0 +1,72 @@
+---
+title: Permutation Invariant
+description: 
+---
+
+import PermutationInvariant from '@/components/permutation-invariant'
+
+# Permutation Invariant
+
+<PermutationInvariant />
+
+$$
+f(\pi(x)) = f(x)
+$$
+
+A function is considered invariant permutable if permuting the inputs does not change the
+output. More formally, a function f is invariant permutable if for any permutation $\pi$, 
+we have $f(\pi(x)) = f(x)$.
+
+This is a stronger property than equivariant permutability, which only requires that the
+output is the same up to a permutation of the inputs. Examples of these include aggregate
+statistics like mean, median, and mode.
+
+## Usage
+
+Use `jaxis.semantics.is_permutation_invariant` for a quick boolean result or
+`is_permutation_invariant_trials` for a recorded multi-trial status. Both expect a
+`DeferredCall` that declares which axis of the arguments is being permuted.
+
+Refer to
+[Interpreting Results](/semantic-properties/interpreting-results) after the run to make
+sense of the returned boolean or `TestState`.
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import (
+  is_permutation_invariant,
+  is_permutation_invariant_trials,
+)
+
+
+def pooled_sum(x):
+  return jnp.sum(x, axis=-1, keepdims=True)
+
+
+sum_fn = DeferredCall(
+  pooled_sum,
+  input_spec=("x", (64, 256), -1),
+  output_spec=-1,  # the pooled axis collapses but is still referenced for validation
+)
+
+assert is_permutation_invariant(sum_fn)
+state = is_permutation_invariant_trials(sum_fn, trials=48)
+print(state.passed)
+```
+
+Pooling, reductions, and statistics computed along a set axis should satisfy the
+predicate. Anything that depends on positional features or generates outputs tied to the
+original ordering (e.g., sorting, cumulative scans, autoregressive decoders) will fail.
+Use the multi-trial helper when you want deterministic pass/fail evidence before shipping
+a new data pipeline.
+
+## Additional Resources
+
+- [Permutation Equivariant](/semantic-properties/permutation-equivariant) for the weaker
+  property that preserves order up to permutation.
+- [Elementwise Independent](/semantic-properties/elementwise-independent) for strict
+  one-to-one mappings.
+- [Property Reference](/semantic-properties/property-reference) for broader context.
+- [Interpreting Results](/semantic-properties/interpreting-results) to analyze outcomes.

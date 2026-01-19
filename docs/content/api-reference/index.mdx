@@ -1,0 +1,38 @@
+---
+title: API Reference
+description: Curated reference for the public Jaxis API.
+---
+
+import { Callout } from "nextra/components";
+
+# API Reference
+
+This section documents the public, user-facing API of Jaxis.
+
+<Callout type="info">
+This is a curated reference. Internal helper modules (rendering, math internals, AST
+plumbing) are intentionally not listed here.
+</Callout>
+
+## Start Here
+
+Most users only need three areas:
+
+- **Archetypes**: presets that bundle multiple semantic properties together.
+  See [Archetypes](/api-reference/archetype).
+- **Semantic Properties**: individual checks like permutation equivariance.
+  See [Semantic Properties](/api-reference/semantics).
+- **Deferred Calls**: the wrapper used to declare input/output axes for a test.
+  See [Deferred Calls](/api-reference/fn).
+
+## Reference Index
+
+| Area | Import | Notes |
+| --- | --- | --- |
+| Archetypes | `from jaxis.archetype import Batch, Mask, Time` | Highest-level API; uses `verify`. |
+| Semantic properties | `from jaxis.semantics import is_*` | Single-trial booleans and multi-trial `TestState`. |
+| Deferred call wrapper | `from jaxis.fn import DeferredCall` | Declares which argument + axis a test targets. |
+| Metric DSL | `from jaxis.dsl import Metric` | Compose pass/fail gates with `&`, `\|`, `<`, `<=`, etc. |
+| Types | `from jaxis.common_typing import InputSpec, OutputSpec, Sentinel, TestState` | Specs + results. |
+| Defaults | `from jaxis.constants import DEFAULT_*` | Tolerances, dtype, RNG seed, trials. |
+| Exceptions | `from jaxis.exceptions import ...` | Common error conditions and troubleshooting. |

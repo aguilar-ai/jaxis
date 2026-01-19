@@ -1,0 +1,61 @@
+---
+title: Mask Invariant
+description: Check that masked positions do not influence unmasked outputs.
+---
+
+# `is_mask_invariant`
+
+Mask invariance means changing masked/padded inputs does not change the unmasked outputs.
+
+## Imports
+
+```py copy
+from jaxis.semantics import (
+  is_mask_invariant,
+  is_mask_invariant_trials,
+)
+```
+
+## Signatures (simplified)
+
+```py
+is_mask_invariant(fn, *, rng=..., test_spec=..., atol=..., rtol=..., dtype=...) -> bool
+is_mask_invariant_trials(
+  fn,
+  trials=...,
+  *,
+  rng=...,
+  test_spec=...,
+  atol=...,
+  rtol=...,
+  dtype=...,
+) -> TestState
+```
+
+## Example
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.common_typing import Sentinel
+from jaxis.fn import DeferredCall
+from jaxis.semantics import is_mask_invariant_trials
+
+
+def masked_mean(x, mask):
+  mask = mask.astype(x.dtype)
+  return (x * mask).sum(axis=-1) / (mask.sum(axis=-1) + 1e-9)
+
+
+fn = DeferredCall(
+  masked_mean,
+  input_spec=[
+    ("x", (32, 128), -1, Sentinel.DEFAULT),
+    ("mask", (32, 128), -1, Sentinel.MASK),
+  ],
+  output_spec=-1,
+)
+
+state = is_mask_invariant_trials(fn, trials=24)
+print(state.passed)
+```

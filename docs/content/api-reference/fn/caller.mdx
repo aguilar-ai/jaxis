@@ -1,0 +1,96 @@
+---
+title: DeferredCall
+description: Declare input/output axes and fixed kwargs for semantic checks.
+---
+
+import { Callout } from "nextra/components";
+
+# `jaxis.fn.DeferredCall`
+
+`DeferredCall` wraps a function together with:
+
+- One or more generated inputs (declared by `input_spec`)
+- An output axis to evaluate on (`output_spec`)
+- Any other fixed keyword arguments needed to call the function
+
+Semantic checks in [`jaxis.semantics`](/api-reference/semantics) take a `DeferredCall`.
+
+## Import
+
+```py copy
+from jaxis.fn import DeferredCall
+```
+
+## Constructor
+
+```py
+DeferredCall(
+  fn,
+  *,
+  input_spec,
+  output_spec=None,
+  **kwargs,
+)
+```
+
+- `fn`: the function under test.
+- `input_spec`: an `InputSpec` or list of `InputSpec` (see
+  [`jaxis.common_typing`](/api-reference/common_typing)).
+- `output_spec`: an `OutputSpec`. If omitted, Jaxis uses the default axis from the input
+  spec.
+- `**kwargs`: all other required function arguments as keyword arguments.
+
+<Callout type="info">
+If `DeferredCall` raises `MissingArgumentsError` / `InvalidArgumentsError`, it means the
+wrapper could not call your function with the args you provided.
+</Callout>
+
+## Minimal Example
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import is_permutation_equivariant
+
+
+def square(x):
+  return jnp.square(x)
+
+
+fn = DeferredCall(
+  square,
+  input_spec=("x", (128, 256), -1),
+  output_spec=-1,
+)
+
+assert is_permutation_equivariant(fn)
+```
+
+## Multiple Generated Inputs
+
+Some checks (notably mask invariance) require more than one generated input.
+
+```py copy
+from jaxis.common_typing import Sentinel
+from jaxis.fn import DeferredCall
+
+fn = DeferredCall(
+  masked_loss,
+  input_spec=[
+    ("x", (128, 32), 0, Sentinel.DEFAULT),
+    ("mask", (128,), 0, Sentinel.MASK),
+  ],
+  output_spec=0,
+  other_arg=123,
+)
+```
+
+## Methods
+
+You generally only need to construct the wrapper; semantic checks will call it.
+
+Advanced usage:
+
+- `with_generated_input(...)` / `with_generated_inputs(...)` are used internally by
+  checkers to inject generated arrays.

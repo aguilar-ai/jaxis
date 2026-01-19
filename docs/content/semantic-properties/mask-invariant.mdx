@@ -1,0 +1,83 @@
+---
+title: Mask Invariant
+description: 
+---
+
+import MaskInvariant from '@/components/mask-invariant'
+
+# Mask Invariant
+
+<MaskInvariant />
+
+$$
+f(x, m) = f(x, m)
+$$
+
+Mask invariance means that if you mark certain outputs as "don't care" or "not present,"
+changing the values of those masked inputs won't affect the outputs for the unmasked
+positions. You can put any garbage in the padded slots — zero, random noise, whatever —
+and the real outputs stay the same. The function genuinely ignores what it's told to
+ignore.
+
+More formally, let $f(x, m)$ be a function that takes an input $x$ and a mask 
+$m \in \{0,1\}^n$, and returns an output $y$. Mask invariance requires that for all $i$ 
+where $m_i = 1$, we have $\frac{\partial y_i}{\partial x_j} = 0$ whenever $m_j = 0$. 
+Equivalently, letting $S = \{j \mid m_j = 1\}$ denote the support, there exists a function 
+$g$ such that $y_S = g(x_S, S)$ — the outputs on the support are fully determined by the 
+inputs on the support. This property composes: if two mask-invariant functions are chained 
+with consistent masking, the result is mask-invariant.
+
+## Usage
+
+Mask invariance is exposed through `jaxis.semantics.is_mask_invariant` and
+`is_mask_invariant_trials`. You must provide both the data tensor and the mask tensor in
+your `DeferredCall` input spec so the checker can perturb masked positions without
+touching unmasked ones. Use `Sentinel.MASK` to differentiate the two specs.
+
+Refer to
+[Interpreting Results](/semantic-properties/interpreting-results) to understand the
+outcome that comes back.
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.common_typing import Sentinel
+from jaxis.fn import DeferredCall
+from jaxis.semantics import (
+  is_mask_invariant,
+  is_mask_invariant_trials,
+)
+
+
+def masked_mean(x, mask):
+  mask = mask.astype(x.dtype)
+  return (x * mask).sum(axis=-1) / mask.sum(axis=-1)
+
+
+masked_mean_fn = DeferredCall(
+  masked_mean,
+  input_spec=[
+    ("x", (16, 128), -1, Sentinel.DEFAULT),
+    ("mask", (16, 128), -1, Sentinel.MASK),
+  ],
+  output_spec=-1,
+)
+
+assert is_mask_invariant(masked_mean_fn)
+state = is_mask_invariant_trials(masked_mean_fn, trials=20)
+print(state.passed)
+```
+
+If the mask axis and data axis disagree, the helper raises `MaskShapeMismatchError`
+rather than returning a false signal. Use multi-trial verification whenever the masked
+region is large or when your model uses stochastic masking so you sample enough
+combinations to be confident.
+
+## Additional Resources
+
+- [Elementwise Independent](/semantic-properties/elementwise-independent) for strict
+  one-to-one data flows.
+- [Triangular Dependent](/semantic-properties/triangular-dependent) for causal sequence
+  checks that often pair with masks.
+- [Property Reference](/semantic-properties/property-reference) for the complete catalog.
+- [Interpreting Results](/semantic-properties/interpreting-results) to interpret errors.

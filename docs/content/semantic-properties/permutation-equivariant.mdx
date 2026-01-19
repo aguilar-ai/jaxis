@@ -1,0 +1,74 @@
+---
+title: Permutation Equivariant
+description: 
+---
+
+import PermutationEquivariant from '@/components/permutation-equivariant'
+
+# Permutation Equivariant
+
+<PermutationEquivariant />
+
+$$
+f(\pi(x)) = \pi(f(x))
+$$
+
+A function is considered equivariant permutable if it behaves consistently with respect to
+permutations of its inputs i.e. if you permute the inputs and then apply the function, you 
+get the same result as applying the function first and then permuting the outputs in a
+corresponding way. More formally, a function f is equivariant to permutations if for any
+permutation π, we have $f(\pi(x)) = \pi(f(x))$. The function "commutes" with the permutation
+operation.
+
+## Usage
+
+`jaxis.semantics` exposes two helpers for this property:
+`is_permutation_equivariant` (single trial, boolean) and
+`is_permutation_equivariant_trials` (multiple trials, returns `TestState`). Wrap your
+function in a `DeferredCall`, declare the axis that should stay equivariant, then dispatch
+to either helper.
+
+Refer to
+[Interpreting Results](/semantic-properties/interpreting-results) for guidance on the
+boolean or `TestState` that these helpers return.
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import (
+  is_permutation_equivariant,
+  is_permutation_equivariant_trials,
+)
+
+
+def square(x):
+  return jnp.square(x)
+
+
+square_fn = DeferredCall(
+  square,
+  input_spec=("x", (128, 256), -1),
+  output_spec=-1,  # outputs permute along the same axis as the inputs
+)
+
+assert is_permutation_equivariant(square_fn)
+state = is_permutation_equivariant_trials(square_fn, trials=24)
+print(state.passed)
+```
+
+Positive examples include every elementwise operation and any permutation-preserving
+module (attention before adding positional encodings, graph message-passing layers, etc.)
+Negative examples include shape-changing permutations such as sort, cumulative sums or
+products, and any op that references positional encodings directly. Use the stochastic
+trial helper when you want to store the RNG + trial index for later reproduction.
+
+## Additional Resources
+
+- [Permutation Invariant](/semantic-properties/permutation-invariant) for the stricter
+  version of this property.
+- [Elementwise Independent](/semantic-properties/elementwise-independent) for functions
+  that preserve one-to-one correspondence.
+- [Property Reference](/semantic-properties/property-reference) to compare related
+  properties.
+- [Interpreting Results](/semantic-properties/interpreting-results) to debug failures.

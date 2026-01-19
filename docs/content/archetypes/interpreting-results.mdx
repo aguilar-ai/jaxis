@@ -1,0 +1,69 @@
+---
+title: Interpreting Results
+description: How to read Archetype results and failure artifacts.
+---
+
+# Interpreting Results
+
+Archetype checks return an `ArchetypeResult` with one or more `CheckResult` entries.
+This page explains what each field means and how to reproduce failures.
+
+## Result Types
+
+`verify()` always returns an `ArchetypeResult`:
+
+- `passed`: overall pass/fail (all checks must pass).
+- `checks`: per‑property results (e.g. permutation equivariance, elementwise independence).
+- `input_specs` / `output_specs`: the inferred specs used for the run.
+- `args`, `trials`, `atol`, `rtol`, `dtype`, `rng`: the parameters that defined the run.
+
+Each `CheckResult` includes:
+- `name`
+- `passed`
+- `trial_index` (first failing trial)
+- `rng` (the failing RNG key)
+- `artifact_path` (if failure artifacts are enabled)
+
+## Re-running a Failure
+
+Every semantic check is reproducible by reusing the failing `rng`:
+
+```py copy
+result = Batch(loss).verify(...)
+failed = [c for c in result.checks if not c.passed]
+if failed and failed[0].rng is not None:
+  # re-run the exact failing trial inside the semantic helper
+  from jaxis.semantics import is_permutation_equivariant
+  is_permutation_equivariant(fn, rng=failed[0].rng)
+```
+
+## Failure Artifacts
+
+If you enable artifacts (`.with_failure_artifacts(enabled=True)`), failures serialize a
+payload to disk. The payload includes:
+
+- archetype name, check name, function name
+- `rng` and `trial_index`
+- input/output specs and user args
+- tolerances and dtype
+- **test spec used for that check** (stringified)
+
+This is the quickest way to hand a reproducible failure to someone else.
+
+## Exceptions vs. Failures
+
+- Exceptions (`MaskShapeMismatchError`, `OutputAxisMissingError`, etc.) indicate a bad
+  spec or incompatible axis shapes.
+- Failures mean the spec was valid and the function violated the property at runtime.
+
+## What to do after a failure
+
+1. Confirm the axis spec (input/output) is what you *meant*.
+2. Re-run the exact trial with the stored RNG.
+3. Inspect upstream transforms along the axis (normalization, masking, pooling, etc.).
+4. Tighten/loosen the test spec only after you understand the failure.
+
+## Related
+
+- [Batch Archetype](/archetypes/batch)
+- [Advanced Usage](/archetypes/advanced-usage)

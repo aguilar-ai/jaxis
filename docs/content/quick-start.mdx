@@ -1,0 +1,214 @@
+---
+title: Quick-ish Start
+description: Get started with Jaxis quicklyish.
+---
+
+import { Tabs } from "nextra/components";
+import { Callout } from "nextra/components";
+import { Steps } from "nextra/components";
+
+# Quick-ish Start
+
+Jaxis helps you verify axis semantics in your machine learning code using property-based 
+testing.
+
+This page assumes you understand some basic machine learning concepts. If you don't, start
+with [Semantic Properties](/semantic-properties) instead. 
+
+## What is Property-Based Testing?
+
+If you're not familiar with property-based testing, see this paragraph from the 
+[QuickCheck Hackage page](https://hackage.haskell.org/package/QuickCheck).
+
+> ... The programmer provides a specification of the program, in the form of properties 
+> which functions should satisfy, and QuickCheck then tests that the properties hold in a 
+> large number of randomly generated cases. Specifications are expressed in Haskell, using 
+> combinators provided by QuickCheck. QuickCheck provides combinators to define 
+> properties, observe the distribution of test data, and define test data generators.
+
+## Installation
+
+<Tabs items={["uv", "pip"]}>
+  <Tabs.Tab value="uv">
+  ```sh copy
+  uv add jaxis
+  ```
+  </Tabs.Tab>
+  <Tabs.Tab value="pip">
+  ```sh copy
+  pip install jaxis
+  ```
+  </Tabs.Tab>
+</Tabs>
+
+## Archetypes
+
+Jaxis helps you verify complex multi-axis patterns in your functions. These patterns are
+captured as **archetypes**.
+
+<Callout type="info">
+An **archetype** is a composite or higher-order property that bundles multiple semantic 
+primitive properties together.
+</Callout>
+
+### Testing a Simple Loss Function
+
+Consider the following loss function for a simple linear regression model. It should 
+handle batched inputs correctly but how do you know it does?
+
+```py copy
+import jax
+
+def loss(wb: jax.Array, X: jax.Array, y: jax.Array) -> jax.Array:
+  w, b = wb[:1], wb[1]
+  yhat = (X @ w).ravel() + b
+  return (yhat - y) ** 2
+```
+
+The `Batch` archetype verifies this automatically.
+
+```py copy
+from jaxis.archetype import Batch
+
+b_arch = (
+  Batch(loss)
+    .with_input_spec(("X", (10, 1), 0))
+    .with_output_spec(0)
+)
+
+result = b_arch.verify(
+  wb=jnp.ones((10, 1)),
+  y=jnp.ones((10,)),
+)
+```
+
+Let's go through what we did here, step by step.
+
+<Steps>
+#### Specifying Inputs
+
+```py
+  .with_input_spec(("X", (10, 1), 0))
+```
+
+Jaxis needs to know which argument to generate test data for. We specify the argument name 
+(`"X"`), its shape (`(10, 1)`), and which axis is the batch dimension (`0`).
+
+#### Specifying Output
+
+```py
+  .with_output_spec(0)
+```
+
+Just as with the input, you must specify the output as well. In this example, the output's 
+batch axis is also dimension 0.
+
+#### Other Parameters & Verification
+
+```py
+result = b_arch.verify(
+  wb=jnp.ones((10, 1)),
+  y=jnp.ones((10,)),
+)
+```
+
+You can specify any other arguments that your function takes by calling `verify` with them
+as keyword arguments.
+</Steps>
+
+When `verify` is called, Jaxis will generate random values for the inputs and call the
+loss function again and again (for a configureable number of trials) and test how the 
+**function behaved at runtime**. That last bit is in bold for good reason.
+
+The tests offer the guarantee that the **function respected the properties that we 
+typically associate with a function that operates on batched data**. See the dedicated 
+page on the [Batch Archetype](/archetypes/batch) for more information.
+
+## Semantic Properties
+
+Jaxis also offers a set of semantic properties that you can test your functions against.
+This is orders of magnitude more powerful than archetypes because it allows you to test 
+every nook and cranny of large, distributed and/or fragmented pipelines.
+
+<Callout type="info">
+A **Semantic Property** captures a single, atomic constraint on how information flows along 
+an axis. It is the unit of axis semantics: abstract enough to apply across domains, 
+concrete enough to verify empirically.
+</Callout>
+
+Semantic properties provide outsize advantages, especially for teams that have to do 
+complex computations on their data before or after training or inference. Many ML papers 
+compress data work into a couple lines — but that's the meat and potatoes of the whole 
+affair.  Model descriptions are naturally modular and spec-like 
+("layers, loss, optimizer"). Data engineering is often contingent: multiple failed 
+attempts, iterative debugging, ad hoc fixes, backfills, and exceptions.
+
+### Was that mask applied correctly, again?
+
+Another day, another loss function.
+
+```py copy
+import jax
+from jax import Array
+
+def loss(wb: Array, X: Array, y: Array, mask: Array) -> Array:
+  w, b = wb[:1], wb[1]
+  yhat = (X @ w).ravel() + b
+  l = (yhat - y) ** 2
+
+  mask = mask.astype(l.dtype).reshape((-1,))
+  return l * mask
+```
+
+Masks can fail silently in ways that no type checker will catch. Your shapes can match.
+Your types can check. And yet, masked samples are still influencing your gradients. You 
+might not notice until your validation metrics look wrong three experiments later.
+
+This is where you can use Jaxis' `is_mask_invariant` semantic property.
+
+```py copy
+from jaxis.semantics import is_mask_invariant
+
+is_mask_invariant(loss)
+```
+
+This will simply return a boolean value indicating whether the loss function is mask 
+invariant based on one trial. You should always run more than one trial, though, because
+of the stochastic nature of floating point arithmetic.
+
+```py copy
+from jaxis.semantics import is_mask_invariant_trials
+from jaxis.common_typing import Sentinel
+from jaxis.fn import DeferredCall
+
+loss_fn = (
+  DeferredCall(loss)
+  .with_input_spec([
+    ("X", (10,), 0, Sentinel.DEFAULT), 
+    ("mask", (10,), 0, Sentinel.Mask),
+  ])
+  .with_output_spec(0)
+)
+
+is_mask_invariant_trials(loss_fn)
+```
+
+We wrap the function in `DeferredCall` to specify how Jaxis should generate test inputs. 
+This runs multiple trials and returns a `TestState` object showing whether the test 
+passed. If it fails, you'll get the trial index and RNG state to reproduce the failure.
+
+## More
+
+This was a quick-ish start, but we highly recommend reading the full documentation to 
+understand what Jaxis does (and more importantly, doesn't) do.
+
+## Additional Resources
+
+- [Concepts](/concepts) for defaults like RNG seeds, trials, and tolerances.
+- [Defining Semantic Properties](/semantic-properties) to dive into the core idea.
+- [Property Reference](/semantic-properties/property-reference) for the full list of
+  properties and when to use them.
+- [Interpreting Results](/semantic-properties/interpreting-results) to understand
+  booleans, `TestState`, and error cases.
+- [Designing a Testing Strategy](/designing-testing-strategy) for selecting metrics and
+  test specs.

@@ -1,0 +1,49 @@
+---
+title: Metric DSL
+description: Compose pass/fail gates using metrics and boolean expressions.
+---
+
+import { Callout } from "nextra/components";
+
+# `jaxis.dsl.Metric`
+
+Jaxis includes a small DSL for declaring pass/fail gates based on computed metrics.
+
+You can:
+
+- Compare metrics to thresholds (`<`, `<=`, `>`, `>=`, `==`, `!=`)
+- Combine comparisons with `&` (AND) and `|` (OR)
+- Pass the resulting expression as `test_spec=...` to semantic checks
+
+## Import
+
+```py copy
+from jaxis.dsl import Metric
+```
+
+## Example
+
+```py copy
+from jaxis.dsl import Metric
+from jaxis.semantics import is_permutation_equivariant
+
+spec = (Metric.P99 < 1.0) & (Metric.MAX < 3.0)
+ok = is_permutation_equivariant(fn, test_spec=spec)
+```
+
+<Callout type="warning">
+Keep the parentheses. Python's operator precedence does not always do what you want when
+mixing comparisons and `&` / `|`.
+</Callout>
+
+## Where To Learn The Metrics
+
+The meaning of each metric is explained on the dedicated docs pages:
+
+- [Metrics & Bespoke Test Specs](/metrics)
+- [Composing Metrics](/composing-metrics)
+
+<Callout type="info">
+Implementation details like `jaxis.dsl.ast.*` are intentionally omitted from the public
+reference.
+</Callout>

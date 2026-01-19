@@ -1,0 +1,102 @@
+---
+title: Batch Archetype
+description: The semantic bundle for batch axes.
+---
+
+import { Callout } from "nextra/components";
+
+# Batch Archetype
+
+The Batch archetype is the default expectation for “sample axes”:
+
+- **Elementwise Independent**: one sample should not influence another.
+- **Permutation Equivariant**: reordering samples should only reorder outputs.
+
+In other words, a batch axis should behave like a stack of independent calls. If you
+shuffle the batch, the output shuffles the same way; if you perturb one sample, nothing
+else should move.
+
+<Callout type="info">
+Use the Batch archetype when you treat an axis as a set or a bag of samples, not a
+sequence with order‑dependent meaning.
+</Callout>
+
+## Usage
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.archetype import Batch
+from jaxis.common_typing import Sentinel
+
+
+def loss(wb, X, y):
+  w, b = wb[:1], wb[1]
+  yhat = (X @ w).ravel() + b
+  return (yhat - y) ** 2
+
+
+arch = (
+  Batch(loss)
+  .with_input_spec(("X", (32, 128), 0, Sentinel.DEFAULT))  # batch axis is 0
+  .with_input_spec(("y", (32,), 0, Sentinel.DEFAULT))
+  .with_output_spec(0)
+)
+
+result = arch.verify(
+  wb=jnp.ones((129,)),
+)
+
+print(result.passed)  # True if all bundled checks pass
+```
+
+## What the Batch archetype checks
+
+Under the hood, `Batch.verify()` runs:
+
+- `is_elementwise_independent_trials(...)`
+- `is_permutation_equivariant_trials(...)`
+
+Both checks are multi‑trial and return a `TestState` (pass/fail + first failing seed).
+
+## Custom specs (optional)
+
+The Batch archetype uses default gate profiles tuned for robustness. If you want stricter
+or different gates, pass specs explicitly:
+
+```py copy
+from jaxis.archetype import Batch
+from jaxis.dsl.ast import Metric as M
+
+spec_perm = (M.P99 <= 1.0) & (M.FRACTION_OVER_1 <= 1e-3) & (M.MAX <= 2.0)
+spec_elem = (
+  (M.LEAKAGE_ENERGY_RATIO <= 1e-3)
+  & (M.OFF_TARGET_MAX_ABS <= 1e-6)
+  & (M.P99 <= 1.0)
+)
+
+arch = Batch(
+  loss,
+  elementwise_spec=spec_elem,
+  permutation_spec=spec_perm,
+)
+```
+
+You can also set them after construction:
+
+```py copy
+arch = Batch(loss).with_elementwise_spec(spec_elem).with_permutation_spec(spec_perm)
+```
+
+## When it should fail
+
+If you:
+- mix across the batch axis (global mean, batch norm without mask handling),
+- make output depend on sample order (sorting, cumulative ops),
+the Batch archetype *should* fail. That’s the point.
+
+## Related
+
+- [Elementwise Independent](/semantic-properties/elementwise-independent)
+- [Permutation Equivariant](/semantic-properties/permutation-equivariant)
+- [Interpreting Results](/archetypes/interpreting-results)

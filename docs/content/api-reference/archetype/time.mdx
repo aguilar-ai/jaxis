@@ -1,0 +1,59 @@
+---
+title: Time
+description: Archetype for causal/prefix-safe axes (triangular dependence).
+---
+
+# `jaxis.archetype.Time`
+
+The `Time` archetype verifies **triangular dependence** (causal / prefix-safe behavior):
+output position `t` must not depend on future input positions `> t`.
+
+## Import
+
+```py copy
+from jaxis.archetype import Time
+```
+
+## Constructor
+
+```py
+Time(
+  fn,
+  *,
+  permutation_equivariant=False,
+  triangular_spec=None,
+  permutation_spec=None,
+)
+```
+
+- `permutation_equivariant`: optional extra check; uncommon for true time axes.
+- `triangular_spec` / `permutation_spec`: optional `Metric` DSL gates.
+
+## Example
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.archetype import Time
+
+
+def cumsum(x):
+  return jnp.cumsum(x, axis=-1)
+
+
+t = (
+  Time(cumsum)
+    .with_input_spec(("x", (8, 128), -1))
+    .with_output_spec(-1)
+)
+
+result = t.verify()
+print(result.passed)
+```
+
+## Time-Specific Overrides
+
+```py
+t.with_triangular_spec(spec)
+t.with_permutation_spec(spec)
+```

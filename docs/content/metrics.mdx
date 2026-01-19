@@ -1,0 +1,376 @@
+---
+title: Metrics & Bespoke Test Specs
+description: A description of the metrics used by Jaxis.
+---
+
+# Metrics
+
+Jaxis utilises a panel of metrics to decide whether a function satisfies semantic
+properties. This page details all available metrics and their purpose. The metrics are
+housed in the `jaxis.dsl.ast.Metric` enum.
+
+These metrics exist for three distinct purposes:
+1. Decide pass/fail robustly in the presence of benign floating-point variability.
+2. Catch real regressions ealry.
+3. Diagnose failures quickly.
+
+No single metric can do all three. `allclose` is good at (1) when used with tail/coverage 
+summaries; norm and angle metrics are good at (2); distributional and ranking metrics 
+match what "matters" for downstream decisions; special-value counts and leakage ratios are 
+high-leverage "smoke detectors" for whole classes of catastrophic errors. 
+## Definitions
+
+### Region $R$
+
+A region is a subset of the output array that is used to compute the metrics. It is 
+typically the subset that is understood to be "constrained" by the semantic property.
+
+### Target $T$
+
+The target is the output of the function that corresponds to the transformed input.
+
+### Reference $R$
+
+The reference is the output of the function that corresponds to the original input.
+
+### Normalized Violation $v$
+
+Normalized violation is a measure of how much the target deviates from our reference. I
+it is defined for each element $i$ in the region $R$ as:
+
+$$
+v_i = \frac{|T_i - R_i|}{(a_{tol} + r_{tol} * |R_i| + \epsilon)}
+$$
+
+where:
+- $\epsilon$ is a small constant to avoid division by zero.
+- $a_{tol}$ is the absolute tolerance.
+- $r_{tol}$ is the relative tolerance.
+
+Interpretation:
+- If $v_i \leq 1$: within tolerance at element $i$.
+- If $v_i > 1$: violation magnitude in "units of tolerance" or "how many tolerance budgets
+you spent"
+
+## Tail/Coverage on Normalized Violation $v$
+
+These are common statistical metrics that most of the audience will be familiar with. They
+exist to characterise the tail of the distribution of normalized violations.
+
+### `P95`, `P99`, `P99.9`
+
+P95, P99, P99.9 are the 95th, 99th, and 99.9th percentiles of the normalized violation $v$ 
+over the region $R$. They characterise the tail of violations without being dominated by
+a single worst element.
+
+All three are there so the programmer can tune strictness and separate "rare spikes" (only
+P999 is bad) from "common tail jitters" (P95/P99 move).
+
+### `MAX`
+
+MAX is the maximum normalized violation $v$ over the region $R$. It is a loose "hard cap"
+that can detect a severe outlier. Percentiles can look fine while one element is 
+catastrophically bad.
+
+### `FRACTION_OVER_1`
+
+`FRACTION_OVER_1` is the fraction of elements in the region $R$ with a normalized violation
+greater than 1. It exists to detect widespread mild regressions.
+
+P99 can stay near 1 even if 5-10% of elements barely exceed 1; fraction-over-threshold 
+surfaces "many small violations".
+
+## Aggregate Error on Raw Deltas
+
+These metrics focus on the raw units of difference between the target and reference.
+
+### `MEAN_ABS_ERR`
+
+$$
+\frac{1}{|R|} \sum_{i} |T_i - R_i|
+$$
+
+Mean Absolute Error is the average absolute difference between the target and reference.
+It is sued to measure the average absolute shift, and is critical in near-zero regimes
+where relative scaling is meaningless.
+
+If $|R|$ is very small, then $|v|$ is dominated by $a_{tol}$ and $\epsilon$; MAE tells you
+the actual scale of discrepancy.
+
+### `RMSE`
+
+$$
+\sqrt{\frac{1}{|R|} \sum_{i} (T_i - R_i)^2}
+$$
+
+Root Mean Square Error is the square root of the mean squared difference between the 
+target and reference. RMSE emphasises large errors more than mean absolute error (the
+$...^2$ imposes a quadratic penalty on large errors) even when MAE continues to 
+hold steady.
+
+### `MAX_ABS_DELTA`
+
+$$
+\max_{i} |T_i - R_i|
+$$
+
+Max Absolute Delta is the maximum absolute difference between the target and reference.
+It is a hard cap in raw units. Why not just $max(v)$? Because $max(v)$ depends on the
+local scale via $a_{tol}$ and $r_{tol}$.
+
+## Global Relative Error
+
+These summarise error relative to the magnitude of the reference — good for catching
+broad drifts.
+
+Let $||\cdot||_p$ denote vector norms over flattened $R$.
+
+The notion of a norm over a flattened tensor can seem... unfamiliar. It's no story the
+Jedi would tell you. The intuition behind them is actually quite trivial. When you 
+flattened a tensor, you're not creating "garbage", you're just changing how the data is 
+arranged. The key insight is that most norms care about the magnitude of all elements 
+together, not their spatial arrangement.
+
+Consider $L_2$, it's literally just the square root of the sum of squared elements.
+Whether those are arranged in a $3 \times 3$ grid or a $1 \times 9$ vector is entirely
+immaterial to the whole affair. The result is quite identical.
+
+A "norm" simply measures how "big" your data is along different axes of "bigness".
+
+### `REL_L1`
+
+$$
+\frac{||T - R||_1}{||R||_1 + \epsilon}
+$$
+
+Relative L1 norm is the L1 norm of the difference between the target and reference divided 
+by the L1 norm of the reference. It is a scale-free measure of the relative error.
+
+### `REL_L2`
+
+$$
+\frac{||T - R||_2}{||R||_2 + \epsilon}
+$$
+
+Relative L2 norm is the L2 norm of the difference between the target and reference divided by
+the L2 norm of the reference. It is a scale-free measure of the relative error.
+
+### `REL_LINF`
+
+$$
+\frac{||T - R||_\infty}{||R||_\infty + \epsilon}
+$$
+
+Relative L-infinity norm is the L-infinity norm of the difference between the target and 
+reference divided by the L-infinity norm of the reference. 
+
+## Vector Similarity
+
+These metrics focus on the similarity of the target and reference as flattened tensors.
+
+## `COSINE_DISTANCE`
+
+$$
+1 - \cos(R, T) = 1 - \frac{R \cdot T}{||R||_2 \cdot ||T||_2}
+$$
+
+Cosine Distance measures the dissimilarity between two non-zero vectors by calculating 1 
+minus their cosine similarity. It ranges from 0 (identical direction) to 2 (opposite 
+direction).
+
+This metric is especially useful for gradients and parameter updates where the direction
+matters more than the magnitude. Two vectors can have wildly different scales but identical
+cosine distance if they point the same way. Conversely, vectors of similar magnitude but
+different directions will have large cosine distance.
+
+Why not just use relative norms? Because relative norms care about "how much bigger/smaller",
+while cosine cares about "how aligned". For optimization updates, alignment is often what
+matters for convergence.
+
+## Distributional Comparisons
+
+These metrics are designed for probability distributions or normalized score vectors —
+cases where you care about the shape of the distribution rather than raw magnitudes.
+
+### `KL_DIVERGENCE`
+
+$$
+D_{KL}(R || T) = \sum_{i} R_i \log \frac{R_i}{T_i + \epsilon}
+$$
+
+Kullback-Leibler divergence measures how much information is lost when using the target
+distribution $T$ to approximate the reference distribution $R$. It is directional (not
+symmetric) and requires both $R$ and $T$ to be probability distributions (non-negative,
+sum to 1).
+
+KL divergence is unbounded and can be quite large when $T_i$ is near zero where $R_i$ is
+not. The $\epsilon$ term prevents division by zero but also means the metric is somewhat
+sensitive to your choice of smoothing.
+
+Use KL when you specifically care about the reference as "ground truth" and want to
+penalise the target for placing mass in the wrong places.
+
+### `JS_DIVERGENCE`
+
+$$
+D_{JS}(R, T) = \frac{1}{2} D_{KL}(R || M) + \frac{1}{2} D_{KL}(T || M)
+$$
+
+where $M = \frac{1}{2}(R + T)$ is the mixture distribution.
+
+Jensen-Shannon divergence is the symmetric, bounded version of KL divergence. It ranges
+from 0 (identical distributions) to 1 (completely disjoint distributions, assuming log base 2).
+
+JS is less sensitive to near-zero probabilities than raw KL because both distributions are
+compared to their average rather than directly to each other. This makes it more stable
+when distributions have sparse support.
+
+Use JS when you want a symmetric distance between two distributions and don't want to
+privilege one as "reference" over the other.
+
+## Ordering and Retrieval Comparisons
+
+These metrics focus on whether the relative ordering of elements is preserved — critical
+for tasks like ranking, retrieval, or top-k selection where absolute values matter less
+than relative ordering.
+
+### `TOPK_OVERLAP`
+
+Top-k overlap measures the fraction of shared elements between the top-k indices of the
+reference and target. For a single vector, this is simply the Jaccard similarity of the
+two index sets. For batched inputs (e.g., rows of a matrix), this is typically computed
+per row and then averaged.
+
+This metric requires a parameter $k$ to be specified in the evaluation context.
+
+Use top-k overlap when downstream tasks only care about the highest-scoring elements — for
+instance, beam search in generation, or nearest-neighbor retrieval. If the same $k$ elements
+appear in both lists (even in different order), overlap is 1.0.
+
+### `KENDALL_TAU_DISTANCE`
+
+$$
+1 - \tau
+$$
+
+where $\tau$ is Kendall's tau rank correlation coefficient.
+
+Kendall's tau measures the similarity of orderings by counting concordant and discordant
+pairs. A pair $(i, j)$ is concordant if $R_i < R_j$ and $T_i < T_j$ (or both reversed),
+and discordant if the orderings disagree.
+
+The distance is 0 when rankings are identical and 1 when they're completely reversed. Unlike
+Spearman's rho, Kendall's tau is less sensitive to the magnitude of rank differences and
+focuses purely on pairwise ordering agreement.
+
+Use this when you care about preserving the overall ranking structure across all elements,
+not just the top-k. Particularly relevant for learning-to-rank or when the entire ordering
+matters downstream.
+
+## Special-Value Diagnostics
+
+These are high-leverage "smoke detectors" for catastrophic numerical failures. A single
+NaN or Inf can poison an entire computation, so even one occurrence is often grounds for
+immediate test failure.
+
+### `NUM_NONFINITE`
+
+The count of elements in the target that are either NaN or Inf over the region $R$.
+
+This is your first line of defense. If this metric is non-zero, something has gone badly
+wrong — overflow, division by zero, or undefined operations. In most property tests, you
+want this to be exactly 0.
+
+### `NUM_NAN`
+
+The count of NaN values in the target over the region $R$.
+
+Use this when you want to distinguish between different failure modes. NaN typically
+indicates an undefined operation (0/0, inf - inf, sqrt of negative) while Inf indicates
+overflow or division by a very small number.
+
+### `NUM_INF`
+
+The count of positive or negative Inf values in the target over the region $R$.
+
+Inf failures are sometimes "less bad" than NaN failures because they preserve some
+directional information, but they're still usually unacceptable. Separating Inf from NaN
+helps diagnose whether you have overflow issues versus undefined operations.
+
+## Property-Structure Metrics
+
+These metrics are specific to locality and elementwise-independence tests. They require
+the test to partition the output into "on-target" (the part that should change) and
+"off-target" (the part that should remain unchanged) regions.
+
+Let $\Delta = T - R$ be the difference between target and reference outputs.
+
+### `OFF_TARGET_RATIO`
+
+$$
+\frac{\max_{i \in \text{off}} |\Delta_i|}{\max_{j \in \text{on}} |\Delta_j| + \epsilon}
+$$
+
+Off-target ratio measures the worst-case leakage relative to the on-target change. If
+this ratio is small (say, < 0.01), then changes are well-localized. If it approaches or
+exceeds 1, then off-target elements are changing as much as on-target ones — a clear
+violation of locality.
+
+This metric can be unstable when the on-target change is very small. In that case, consider
+using absolute caps instead.
+
+### `LEAKAGE_ENERGY_RATIO`
+
+$$
+\frac{||\Delta_{\text{off}}||_2}{||\Delta_{\text{on}}||_2 + \epsilon}
+$$
+
+This is the L2-norm version of the off-target ratio. Rather than comparing worst-case
+elements, it compares the total "energy" of change in each region.
+
+Leakage energy ratio is less brittle than the max-based ratio because it aggregates over
+all elements. A single outlier in the off-target region won't dominate the metric. Use
+this when you care about the overall magnitude of leakage rather than the worst single
+element.
+
+### `OFF_TARGET_MAX_ABS`
+
+$$
+\max_{i \in \text{off}} |\Delta_i|
+$$
+
+The maximum absolute change in the off-target region, in raw units.
+
+This is an absolute cap on leakage. Use it when the on-target change magnitude is tiny
+or unpredictable, making ratio-based metrics unstable. You can set a fixed threshold
+(e.g., 1e-6) and declare the test passed if this metric stays below it, regardless of
+what happens on-target.
+
+### `ON_TARGET_MAG`
+
+$$
+\max_{j \in \text{on}} |\Delta_j|
+$$
+
+or
+
+$$
+||\Delta_{\text{on}}||_2
+$$
+
+for multi-dimensional on-target regions.
+
+On-target magnitude is not a pass/fail criterion — it's a sanity check. If this is near
+zero, your test input might be trivial (no actual transformation occurred). If it's
+unexpectedly large, you might have a bug in your test setup.
+
+Use this metric to guard against false passes from trivial inputs and to help debug
+threshold choices for ratio-based metrics.
+
+## Additional Resources
+
+- [Composing Metrics](/composing-metrics) for building compound test specifications.
+- [Designing a Testing Strategy](/designing-testing-strategy) for why these metrics exist
+  and how to balance them.
+- [Advanced Usage](/semantic-properties/advanced-usage) for customizing semantic checks.
+- [Concepts](/concepts) for the defaults that influence metric evaluation.

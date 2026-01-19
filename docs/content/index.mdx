@@ -1,0 +1,98 @@
+---
+title: Introduction
+description: Jaxis is a property-based testing framework for validating axis semantics in ML training pipelines.
+---
+
+# Introduction
+
+You can eliminate entire classes of bugs when writing code by simply being slightly more 
+disciplined with typing your variables.
+
+```py
+from typing import NewType
+
+Email = NewType('Email', str)
+UserId = NewType('UserId', str)
+
+def find_user_id(email: Email) -> UserId: ...
+```
+
+But in machine learning code, typing tends to be far more rudimentary:
+
+```py
+def do_fn(x: jax.Array) -> jax.Array: ...
+```
+
+We have breathtakingly little information in the type signature itself. Any number of 
+things can go wrong in this function and it's quite likely we will only find out that 
+something is wrong after precious blood and treasure has been spent. 
+
+Libraries like `jaxtyping` improve things substantially. They will give you documentation 
+and runtime type-guards for the dimensions of your arrays. If you're used to the 
+expressiveness that languages with strong type systems grant you, even that tends to feel 
+wholly inadequate.
+
+At the heart of this is the fact that arrays in ML tend to be groupings of heterogenous 
+data with a homogeneous data layout. We can check its shape and that's about it. We know 
+intuitively that the different axes have specific *semantic* properties. They have meaning 
+beyond being numbers, just like the string that's a user ID is not the same as a string 
+that's an email.
+
+## Solution
+
+How do you adequately represent this? For reasons we won't go into here, you 
+can't; but the consolation is that we can *test* it.
+
+Consider a function $f: \mathcal{X} \to \mathcal{Y}$ where $\mathcal{X} \subseteq 
+\mathbb{R}^{d_1 \times \cdots \times d_n}$ and $\mathcal{Y} \subseteq \mathbb{R}^{e_1 
+\times \cdots \times e_m}$. Each axis carries **semantics**: an implicit contract governing 
+how $f$ must treat positions along that axis. This contract has two aspects. 
+
+1. First, a **dependency structure** — which input positions may influence which output 
+positions. 
+2. Second, a **transformation law** — how $f$ must behave when the input is rearranged 
+along that axis.  
+
+Together, these determine what it means for $f$ to respect the axis.
+
+The semantics of any axis can be decomposed into a conjunction of primitive mathematical 
+properties. We cannot express these properties in the type system, but we can test them. 
+Since arrays make it trivial to generate synthetic data of arbitrary shape, we can apply 
+property-based testing: generate random inputs, apply $f$, and verify that the expected 
+properties hold. This is QuickCheck for axis semantics. This is Jaxis.
+
+## Beyond Jaxis
+
+You should always look into the broader market to understand what's available. These are
+projects that are very worth your time and in many ways, inspired Jaxis. Jaxis occupies a 
+specific niche. Understanding what it doesn't do clarifies when to reach for something 
+else.
+
+- [`jaxtyping`](https://github.com/google/jaxtyping) gives you shape annotations and 
+runtime guards. You can write `Float[Array, "batch seq embed"]` and get documentation plus 
+shape checking. But shape correctness doesn't imply semantic correctness — your batch axis 
+can have the right size while your function still leaks information across examples. 
+Jaxtyping tells you the array is $32 \times 128 \times 512$; Jaxis tests whether dimension 
+0 actually behaves like a batch axis.
+- [`chex`](https://github.com/google-deepmind/chex) provides assertion utilities for JAX: 
+shape checks, dtype checks, `assert_trees_all_close`, and helpers for testing across JAX 
+transformations. It's assertion-based — you specify what should be true at a specific 
+point.  Jaxis is property-based — you specify invariants and it generates inputs to find 
+violations.  Chex helps you write `assert output.shape == expected`; Jaxis helps you write 
+"this function is permutation equivariant along axis 0" and then tries to prove you wrong.
+- [`hypothesis`](https://github.com/HypothesisWorks/hypothesis) is a general-purpose 
+property-based testing framework. You could, in principle, build Jaxis on top of it. But 
+Hypothesis knows nothing about axis semantics, JAX's tolerance requirements, or why GPU 
+non-determinism demands quantile-based error metrics instead of max error. Jaxis packages 
+domain-specific properties (triangular dependence, mask invariance) with ML-aware 
+comparison strategies. It's the difference between a general-purpose workshop and a 
+specialized jig.
+
+## Additional Resources
+
+- [Quick-ish Start](/quick-start) for a hands-on walkthrough.
+- [Concepts](/concepts) for defaults like RNG seeds, trials, tolerances, and dtypes.
+- [Defining Semantic Properties](/semantic-properties) to understand the core abstraction.
+- [Designing a Testing Strategy](/designing-testing-strategy) for the rationale behind
+  Jaxis' metrics and pass/fail logic.
+- [Metrics](/metrics) for the full list of error and similarity measures.

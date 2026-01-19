@@ -1,0 +1,83 @@
+---
+title: Batch
+description: Archetype for sample axes that should be independent and order-agnostic.
+---
+
+import { Callout } from "nextra/components";
+
+# `jaxis.archetype.Batch`
+
+The `Batch` archetype is for sample axes that should behave like a batch:
+
+- **Elementwise independent** (no cross-example leakage)
+- **Permutation equivariant** (order does not matter)
+
+## Import
+
+```py copy
+from jaxis.archetype import Batch
+```
+
+## Constructor
+
+```py
+Batch(
+  fn,
+  *,
+  elementwise_spec=None,
+  permutation_spec=None,
+)
+```
+
+- `fn`: the function under test.
+- `elementwise_spec` / `permutation_spec`: optional `Metric` DSL gates to override
+  defaults.
+
+## Required Configuration
+
+Before you can call `verify`, you must declare input/output axes:
+
+- `with_input_spec(...)`
+- `with_output_spec(...)`
+
+```py copy
+b = (
+  Batch(loss_fn)
+    .with_input_spec(("X", (128, 32), 0))
+    .with_output_spec(0)
+)
+```
+
+## Running
+
+```py copy
+result = b.verify(wb=..., y=...)
+print(result.passed)
+```
+
+`verify` returns an `ArchetypeResult` (truthy if passed) with:
+
+- `passed`: overall boolean
+- `checks`: per-property check results (including `trial_index` + `rng` on failure)
+- `to_dict()`: JSON-serializable structure for logging/CI
+
+## Common Overrides
+
+All archetypes support the same runtime knobs:
+
+- `with_trials(trials)`
+- `with_rng(rng)`
+- `with_tolerances(atol, rtol)`
+- `with_dtype(dtype)`
+- `with_args(**kwargs)` to set fixed function arguments once
+- `with_failure_artifacts(enabled=True, directory=...)` to save repro artifacts
+
+Batch-specific knobs:
+
+- `with_elementwise_spec(spec)`
+- `with_permutation_spec(spec)`
+
+<Callout type="warning">
+Archetypes require keyword arguments. If your function is called with positional args,
+wrap it in a tiny adapter that only accepts keywords.
+</Callout>

@@ -1,0 +1,50 @@
+---
+title: Archetypes
+description: Presets that bundle multiple semantic property checks.
+---
+
+import { Callout } from "nextra/components";
+
+# Archetypes
+
+Archetypes are the highest-level API in Jaxis. They are presets that bundle multiple
+semantic properties together under a familiar concept like "batch axis" or "time axis".
+
+## Available Archetypes
+
+- [Batch](/api-reference/archetype/batch): elementwise independent + permutation
+  equivariant.
+- [Mask](/api-reference/archetype/mask): mask invariant.
+- [Time](/api-reference/archetype/time): triangular dependent (optionally also
+  permutation equivariant).
+
+## Basic Pattern
+
+All archetypes share the same workflow:
+
+1. Construct the archetype with a function.
+2. Specify input/output axes with `with_input_spec(...)` and `with_output_spec(...)`.
+3. Call `verify(...)` with the remaining function arguments.
+
+```py copy
+from jaxis.archetype import Batch
+
+
+def my_fn(x, scale):
+  return x * scale
+
+
+b = (
+  Batch(my_fn)
+    .with_input_spec(("x", (32, 128), 0))
+    .with_output_spec(0)
+)
+
+result = b.verify(scale=2.0)
+assert result.passed
+```
+
+<Callout type="info">
+If you want a single property (not a preset), use the functions in
+[`jaxis.semantics`](/api-reference/semantics) directly.
+</Callout>

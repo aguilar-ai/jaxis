@@ -1,0 +1,50 @@
+---
+title: Defining Semantic Properties
+description: A description of what semantic properties are and how they work.
+---
+
+# Defining Semantic Properties
+
+A **Semantic Property** is a testable claim about what a function means, not just what it 
+computes. When you say an axis is a "batch axis," you're asserting something about 
+intent — that examples are independent, interchangeable, and processed in parallel. The 
+function's code doesn't declare this; you do. 
+
+## How They Work
+
+A semantic property is a predicate $P : (\mathcal{X} \to \mathcal{Y}) \to {\text{true}, 
+\text{false}}$ that constrains the functional relationship between inputs and outputs 
+along specified axes. These predicates are defined extensionally — by the input-output 
+behavior they require — rather than intensionally by inspecting implementation.
+
+We test this empirically: generate random inputs, compute outputs, and verify the 
+constraint or constraints hold.
+
+## What "Semantic" Means here
+
+We should concede the sleight of hand — "semantic" here is a borrowed term. We are not 
+capturing meaning in any deep sense; we are capturing *structural regularities* that we 
+have decided correspond to meaning. The gap between "this function is elementwise 
+independent" and "this axis is a batch axis" is bridged by convention. The tests verify 
+the mathematics; responsibility for the semantics remains with you, the programmer.
+
+## Semantic Properties Are Composable
+
+Individual properties can be combined to test complex patterns. An archetype, which you 
+have encountered or will later encounter, is a composite property that bundles multiple 
+semantic properties together.
+
+## Practical Tradeoffs
+
+Some properties are easier to test empirically than to define formally. We prioritize 
+tests that catch real bugs over mathematical purity — if a test reliably finds problems in 
+practice, we include it.
+
+## Additional Resources
+
+- [Property Reference](/semantic-properties/property-reference) for the full catalog.
+- [Interpreting Results](/semantic-properties/interpreting-results) to understand
+  booleans, `TestState`, and exceptions.
+- [Advanced Usage](/semantic-properties/advanced-usage) for tuning checks with custom
+  specs.
+- [Quick-ish Start](/quick-start) for end-to-end examples.

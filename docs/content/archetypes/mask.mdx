@@ -1,0 +1,82 @@
+---
+title: Mask Archetype
+description: The semantic bundle for masked/padded axes.
+---
+
+import { Callout } from "nextra/components";
+
+# Mask Archetype
+
+The Mask archetype checks **mask invariance**: changing masked/padded inputs must not
+affect unmasked outputs.
+
+If your code uses padding, ragged batches, masked losses, or selective attention, this
+property is the one that actually catches silent leakage.
+
+<Callout type="info">
+If a masked element can influence an unmasked output, the mask is *cosmetic*, not
+semantic. This archetype exists to detect that.
+</Callout>
+
+## Usage
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.archetype import Mask
+from jaxis.common_typing import Sentinel
+
+
+def masked_loss(x, mask):
+  return x * mask[..., None]
+
+
+arch = (
+  Mask(masked_loss)
+  .with_input_spec(
+    [
+      ("x", (64, 128), 0, Sentinel.DEFAULT),
+      ("mask", (64,), 0, Sentinel.MASK),
+    ]
+  )
+  .with_output_spec(0)
+)
+
+result = arch.verify()
+print(result.passed)
+```
+
+## What the Mask archetype checks
+
+`Mask.verify()` runs:
+
+- `is_mask_invariant_trials(...)`
+
+The check perturbs masked positions and verifies that unmasked outputs do not change.
+
+## Custom specs
+
+```py copy
+from jaxis.archetype import Mask
+from jaxis.dsl.ast import Metric as M
+
+spec = (M.P99 <= 1.0) & (M.FRACTION_OVER_1 <= 1e-3) & (M.OFF_TARGET_MAX_ABS <= 1e-6)
+arch = Mask(masked_loss, test_spec=spec)
+```
+
+You can also override after construction:
+
+```py copy
+arch = Mask(masked_loss).with_test_spec(spec)
+```
+
+## When it should fail
+
+- global normalization across masked and unmasked values,
+- any operation that aggregates over masked positions without applying the mask,
+- attention/logit normalization that ignores the mask.
+
+## Related
+
+- [Mask Invariant](/semantic-properties/mask-invariant)
+- [Interpreting Results](/archetypes/interpreting-results)

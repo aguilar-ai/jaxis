@@ -1,0 +1,57 @@
+---
+title: Mask
+description: Archetype for padded/masked axes where masked values must not leak.
+---
+
+# `jaxis.archetype.Mask`
+
+The `Mask` archetype verifies **mask invariance**: changing masked/padded values must not
+affect the unmasked outputs.
+
+## Import
+
+```py copy
+from jaxis.archetype import Mask
+```
+
+## Constructor
+
+```py
+Mask(
+  fn,
+  *,
+  test_spec=None,
+)
+```
+
+- `fn`: the function under test.
+- `test_spec`: optional `Metric` DSL gate to override the default mask-invariant gate.
+
+## Required Configuration
+
+You must provide input/output specs before calling `verify`.
+
+For mask tests, your input specs typically include both the data axis and the mask axis
+(see `Sentinel.MASK` in [`jaxis.common_typing`](/api-reference/common_typing)).
+
+```py copy
+from jaxis.common_typing import Sentinel
+
+m = (
+  Mask(masked_loss)
+    .with_input_spec([
+      ("x", (128, 32), 0, Sentinel.DEFAULT),
+      ("mask", (128,), 0, Sentinel.MASK),
+    ])
+    .with_output_spec(0)
+)
+
+result = m.verify(other_arg=...)
+assert result.passed
+```
+
+## Mask-Specific Override
+
+```py
+m.with_test_spec(spec)
+```

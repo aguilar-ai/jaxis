@@ -1,0 +1,35 @@
+[project]
+name = "jaxis"
+version = "0.1.0"
+description = "Property-based testing for axis semantics in JAX."
+readme = "README.md"
+authors = [{ name = "EYFAmqS5", email = "admin.3dox+github729ad0@aguilar.ai" }]
+requires-python = ">=3.11"
+dependencies = ["jax>=0.8.2", "platformdirs>=4.5.1", "rich>=14.2.0"]
+
+[project.urls]
+Homepage = "https://github.com/aguilar-ai/jaxis"
+Repository = "https://github.com/aguilar-ai/jaxis"
+Issues = "https://github.com/aguilar-ai/jaxis/issues"
+Documentation = "https://github.com/aguilar-ai/jaxis#readme"
+Changelog = "https://github.com/aguilar-ai/jaxis/releases"
+
+[build-system]
+requires = ["uv_build>=0.9.16,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "notebook>=7.5.2",
+    "pdoc3>=0.11.6",
+    "pyright>=1.1.408",
+    "pytest>=9.0.2",
+    "ruff>=0.14.11",
+]
+
+[tool.ruff]
+indent-width = 2
+line-length = 90
+
+[tool.pyright]
+strict = ["src"]

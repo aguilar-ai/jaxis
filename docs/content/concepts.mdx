@@ -1,0 +1,82 @@
+---
+title: Concepts
+description: A collection of concepts applicable across Jaxis.
+---
+
+import DefaultBadge from "@/components/default-badge";
+import * as c from "@/lib/content-constants";
+
+# Concepts
+
+This page details some of the core concepts applicable across Jaxis. It includes
+documentation of crucial parameters and how they work.
+
+## Random Number Generation
+
+<DefaultBadge value={c.DEFAULT_RNG_SEED} />
+
+Jaxis makes extensive use of random number generation to test the properties of your
+functions. By default, Jaxis uses a static seed and calls `jax.random.key()` to generate 
+an RNG. It also has the option of saving test artifacts for failed tests to help you 
+debug. 
+
+## Trials
+
+<DefaultBadge value={c.DEFAULT_TRIALS} />
+
+A "test" in Jaxis is actually a series of tests. Each test is referred to as a "trial".
+This is to ensure that the function has had to satisfy the property with a diverse set of 
+inputs (sourced from the RNG), can be tried against a given function, thereby increasing 
+the chance of identifying subtle bugs.
+
+## Tolerances
+
+### Absolute Tolerance
+
+<DefaultBadge value={c.DEFAULT_ATOL} />
+
+Quite frequently, Jaxis has to compare the values of two arrays to determine if they are 
+equal. This comparison is not a true equality check as, given the nature of floating 
+point, it would not be anywhere near as reliable enough. We use an approximate check. The
+Absolute Tolerance is the absolute value of the maximum allowed difference between 
+two arrays.
+
+### Relative Tolerance
+
+<DefaultBadge value={c.DEFAULT_RTOL} />
+
+The Relative Tolerance, on the other hand, is the maximum allowed difference between a
+function's ouput and the true value expressed as a ratio of the true value.
+
+We highly recommend reading [How Jaxis Works](./designing-testing-strategy.mdx) in order 
+to understand how tolerances are used to test your functions.
+
+## DType
+
+<DefaultBadge value={c.DEFAULT_DTYPE} />
+
+Within Jax, arrays are homogeneous and contain elements described by a single `dtype`
+object. Consequently, nearly all user-facing functions and classes expose a `dtype` 
+parameter in Jaxis as a keyword argument. You must test your functions under the same 
+conditions as you would use them in production.
+
+### Examples
+
+#### Semantic Properties
+
+```py
+import jaxis.semantics import is_triangular_dependent
+from jax.typing import DTypeLike
+
+dtype: DTypeLike = jax.numpy.float32
+
+is_triangular_dependent(fn, dtype=dtype)
+```
+
+## Additional Resources
+
+- [Designing a Testing Strategy](/designing-testing-strategy) for how tolerances and
+  stochasticity shape pass/fail decisions.
+- [Metrics](/metrics) for the definitions behind error summaries.
+- [Composing Metrics](/composing-metrics) to build custom test specs.
+- [Defining Semantic Properties](/semantic-properties) for how axes are modeled.

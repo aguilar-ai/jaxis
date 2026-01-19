@@ -1,0 +1,148 @@
+---
+title: Property Reference
+description: A reference of all the semantic properties available in Jaxis.
+---
+
+import { Table } from "nextra/components";
+
+# Property Reference
+
+This page details all the semantic properties available in Jaxis as of the latest release.
+For help reading pass/fail outputs, see
+[Interpreting Results](/semantic-properties/interpreting-results).
+
+## Elementwise Independent
+
+_Also known as Diagonal Dependent._
+
+Each output depends only on its corresponding input, and changing one input affects only 
+its own output and nothing else.
+
+See the [Elementwise Independent](/semantic-properties/elementwise-independent) page to
+learn more.
+
+### Applications
+
+- Losses, metrics, per-example heads
+- Token axis in per-token prediction
+- Channel axis in convolutional layers
+- Spatial axis in image processing
+
+#### Verify with Jaxis
+
+Use `jaxis.semantics.is_elementwise_independent` for a single randomized trial or
+`jaxis.semantics.is_elementwise_independent_trials` for repeated testing across different
+random seeds.
+
+## Permutation Equivariant
+
+Permuting the inputs and then applying the function gives the same result as applying the 
+function first and then permuting the outputs in the same way.
+
+For a permutation $\pi$, we have:
+
+$$
+f(\pi(x)) = \pi(f(x))
+$$
+
+See the [Permutation Equivariant](/semantic-properties/permutation-equivariant) page to
+learn more.
+
+### Applications
+
+- Training loops, losses, metrics
+- Token axis in attention _before positional encoding_
+- Entity axis in multi-entity models
+- Node axis in graph neural networks
+- Point axis in physics models
+
+#### Verify with Jaxis
+
+Call `jaxis.semantics.is_permutation_equivariant` to run one trial or
+`jaxis.semantics.is_permutation_equivariant_trials` to repeat the verification until it
+either fails or reaches the configured maximum number of trials.
+
+## Permutation Invariant
+
+Permuting the inputs does not change the output at all.
+
+For a permutation $\pi$, we have:
+
+$$
+f(\pi(x)) = f(x)
+$$
+
+See the [Permutation Invariant](/semantic-properties/permutation-invariant) page to
+learn more.
+
+### Applications
+
+- Sums, means, maxes, mins over a set axis; bag-of-feature type processing
+- Computing dataset level metrics
+- Graph classification
+- Self attention followed by pooling
+
+#### Verify with Jaxis
+
+Run `jaxis.semantics.is_permutation_invariant` for an individual trial or
+`jaxis.semantics.is_permutation_invariant_trials` when you want deterministic pass/fail
+signals over multiple random permutations.
+
+## Mask Invariant
+
+For any mask $m$, changing inputs at masked positions does not change the outputs at
+unmasked positions.
+
+More verbosely, mask invariance means that if you mark certain outputs as "don't care" or 
+"not present," changing the values of those masked inputs won't affect the outputs for the 
+unmasked positions. You can put any garbage in the padded slots — zero, random noise, 
+whatever — and the real outputs stay the same. The function genuinely ignores what it's 
+told to ignore.
+
+See the [Mask Invariant](/semantic-properties/mask-invariant) page to learn more.
+
+### Applications
+
+- Almost all NLP, audio, time-series
+- Batches with partial validity
+- Causal attention
+
+#### Verify with Jaxis
+
+Use `jaxis.semantics.is_mask_invariant` to perturb masked positions once or
+`jaxis.semantics.is_mask_invariant_trials` when you want to sweep multiple RNG seeds to
+guard against stochastic failures.
+
+## Triangular Dependent
+
+_Also known as Causal, Temporal Dependence_
+
+Triangular dependence means that each output in a sequence can only "see" inputs that came
+before it or at the same position — never inputs that come later. If you're computing the
+fifth output, it can depend on inputs one through five, but not on inputs six, seven, and
+so on. Information flows forward through the sequence, never backward.
+
+See the [Triangular Dependent](/semantic-properties/triangular-dependent) page to learn 
+more.
+
+### Applications
+
+- The venerable causal attention mechanism
+- Time series forecasting, demand forecasting, anomaly detection
+- Real-time recommendations
+- RNNs, SSMs, RWKV-style models
+- Causal ML
+
+#### Verify with Jaxis
+
+Run `jaxis.semantics.is_triangular_dependent` for a quick check or
+`jaxis.semantics.is_triangular_dependent_trials` if you need a recorded `TestState` across
+several random perturbations.
+
+## Additional Resources
+
+- [Defining Semantic Properties](/semantic-properties) for the conceptual overview.
+- [Interpreting Results](/semantic-properties/interpreting-results) to read pass/fail
+  outcomes and errors.
+- [Metrics](/metrics) for how each check evaluates numeric deviations.
+- [Composing Metrics](/composing-metrics) to build custom specifications.

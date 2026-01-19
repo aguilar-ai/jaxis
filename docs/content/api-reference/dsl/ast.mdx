@@ -1,0 +1,320 @@
+Module jaxis.dsl.ast
+====================
+
+Classes
+-------
+
+`BoolExpr(op: ForwardRef('BoolOp'), terms: ForwardRef('tuple[Expr, ...]'))`
+:   BoolExpr(op, terms)
+
+    ### Ancestors (in MRO)
+
+    * builtins.tuple
+
+    ### Instance variables
+
+    `op: jaxis.dsl.ast.BoolOp`
+    :   Alias for field number 0
+
+    `terms: tuple[jaxis.dsl.ast.MetricExpr | jaxis.dsl.ast.BoolExpr, ...]`
+    :   Alias for field number 1
+
+    ### Methods
+
+    `evaluate(self, metrics: Mapping[Metric, float]) ‑> bool`
+    :
+
+    `failed_leaves(self, metrics: Mapping[Metric, float]) ‑> list[tuple[jaxis.dsl.ast.MetricExpr, float]]`
+    :   Returns leaf predicates that fail, along with their actual metric values.
+        Useful for error messages.
+
+`BoolOp(*args, **kwds)`
+:   Create a collection of name/value pairs.
+    
+    Example enumeration:
+    
+    ```python
+    >>> class Color(Enum):
+    ...     RED = 1
+    ...     BLUE = 2
+    ...     GREEN = 3
+    ```
+    
+    Access them by:
+    
+    - attribute access::
+    
+    ```python
+    >>> Color.RED
+    <Color.RED: 1>
+    ```
+    
+    - value lookup:
+    
+    ```python
+    >>> Color(1)
+    <Color.RED: 1>
+    ```
+    
+    - name lookup:
+    
+    ```python
+    >>> Color['RED']
+    <Color.RED: 1>
+    ```
+    
+    Enumerations can be iterated over, and know how many members they have:
+    
+    ```python
+    >>> len(Color)
+    3
+    
+    >>> list(Color)
+    [<Color.RED: 1>, <Color.BLUE: 2>, <Color.GREEN: 3>]
+    ```
+    
+    Methods can be added to enumerations, and members can have their own
+    attributes -- see the documentation for details.
+
+    ### Ancestors (in MRO)
+
+    * enum.Enum
+
+    ### Class variables
+
+    `AND`
+    :
+
+    `OR`
+    :
+
+`ComparisonOperator(*args, **kwds)`
+:   Create a collection of name/value pairs.
+    
+    Example enumeration:
+    
+    ```python
+    >>> class Color(Enum):
+    ...     RED = 1
+    ...     BLUE = 2
+    ...     GREEN = 3
+    ```
+    
+    Access them by:
+    
+    - attribute access::
+    
+    ```python
+    >>> Color.RED
+    <Color.RED: 1>
+    ```
+    
+    - value lookup:
+    
+    ```python
+    >>> Color(1)
+    <Color.RED: 1>
+    ```
+    
+    - name lookup:
+    
+    ```python
+    >>> Color['RED']
+    <Color.RED: 1>
+    ```
+    
+    Enumerations can be iterated over, and know how many members they have:
+    
+    ```python
+    >>> len(Color)
+    3
+    
+    >>> list(Color)
+    [<Color.RED: 1>, <Color.BLUE: 2>, <Color.GREEN: 3>]
+    ```
+    
+    Methods can be added to enumerations, and members can have their own
+    attributes -- see the documentation for details.
+
+    ### Ancestors (in MRO)
+
+    * enum.Enum
+
+    ### Class variables
+
+    `EQ`
+    :
+
+    `GE`
+    :
+
+    `GT`
+    :
+
+    `LE`
+    :
+
+    `LT`
+    :
+
+    `NE`
+    :
+
+    ### Methods
+
+    `compare(self, lhs: float, rhs: float) ‑> bool`
+    :
+
+`Metric(*args, **kwds)`
+:   Metric definitions for property tests.
+    
+    Conventions these metrics assume (so the enum stays small and high-leverage):
+    
+    - You compare a reference output `ref` and a target output `tgt` on a selected region R.
+    - Define elementwise absolute error on $R$:
+        $ ext{abs\_err} = |       ext{tgt} -      ext{ref}|$
+    - Define elementwise "normalized violation" on $R$:
+        $v =      ext{abs\_err} / (       ext{atol} +     ext{rtol} \cdot |       ext{ref}| + \epsilon)$
+      where $(    ext{atol},      ext{rtol})$ live in the *evaluation context*, not in the enum.
+    - Most tail/coverage metrics operate on $v$ (dimensionless).
+    - Norm-ratio metrics operate on $     ext{ref}$ and $ ext{tgt}$ (or their deltas) over $R$.
+    - Some metrics ($     ext{OFF\_TARGET\_*}$, $ ext{ON\_TARGET\_*}$) require the test to provide an
+      "on-target" subset and its complement "off-target" subset (typical for
+      elementwise-independence/locality tests).
+
+    ### Ancestors (in MRO)
+
+    * enum.Enum
+
+    ### Class variables
+
+    `COSINE_DISTANCE`
+    :   $1 -  ext{cosine\_similarity}(        ext{ref},       ext{tgt})$ on flattened tensors over $R$.
+        Use for gradients/updates; smaller is better.
+
+    `FRACTION_OVER_1`
+    :   Fraction of elements in $R$ with $v > 1.0$.
+        Catches widespread mild regressions that percentiles can miss.
+
+    `JS_DIVERGENCE`
+    :   Jensen-Shannon divergence between $p$ and $q$ over $R$ (requires probabilities).
+        Symmetric and bounded.
+
+    `KENDALL_TAU_DISTANCE`
+    :   $1 -  ext{Kendall's tau rank correlation}$ between $  ext{ref}$ and $ ext{tgt}$ rankings
+        (requires rankable scores). Smaller is better.
+
+    `KL_DIVERGENCE`
+    :   $     ext{KL}(p \parallel q)$ over $R$ (requires probability vectors $p=      ext{ref}$, $q=  ext{tgt}$ with smoothing/eps).
+        Directional.
+
+    `LEAKAGE_ENERGY_RATIO`
+    :   $\lVert \Delta_       ext{off} 
+Vert_2 / (\lVert \Delta_        ext{on} 
+Vert_2 + \epsilon)$ (or $/ (|\Delta_    ext{on}| + \epsilon)$ for scalar on-target).
+        Less brittle than max ratio.
+
+    `MAX`
+    :   Maximum normalized violation $v$ over $R$.
+        Use as a looser 'hard cap' alongside a tail percentile.
+
+    `MAX_ABS_DELTA`
+    :   $     ext{Max}(|      ext{tgt} -      ext{ref}|)$ over $R$ (raw units).
+        Absolute hard cap; often paired with normalized tail metrics.
+
+    `MEAN_ABS_ERR`
+    :   $     ext{Mean}(|     ext{tgt} -      ext{ref}|)$ over $R$ (raw units).
+        Useful when absolute scale matters (near-zero regimes).
+
+    `NUM_INF`
+    :   Count of $\pm         ext{Inf}$ in $  ext{tgt}$ over $R$. Use when you want to distinguish overflow/$ ext{Inf}$ from $        ext{NaN}$.
+
+    `NUM_NAN`
+    :   Count of $    ext{NaN}$ in $  ext{tgt}$ over $R$. Use when you want to distinguish $  ext{NaN}$ failures from $       ext{Inf}$ 
+        failures.
+
+    `NUM_NONFINITE`
+    :   Count of $    ext{NaN}$ or $  ext{Inf}$ in $  ext{tgt}$ over $R$.
+        High-leverage: should generally be $0$ in property tests.
+
+    `OFF_TARGET_MAX_ABS`
+    :   $\max(|\Delta_        ext{off}|)$ (raw units).
+        Absolute leakage cap for cases where $|\Delta_        ext{on}|$ is tiny and ratios are unstable.
+
+    `OFF_TARGET_RATIO`
+    :   $\max(|\Delta_        ext{off}|) / (|\Delta_  ext{on}| + \epsilon)$.
+        Requires $\Delta = f(x') - f(x)$ and on/off-target split.
+        Smaller means less leakage.
+
+    `ON_TARGET_MAG`
+    :   $|\Delta_     ext{on}|$ (or $\lVert \Delta_   ext{on} 
+Vert_2$ for multi-dim on-target).
+        Use as a non-triviality guard and for debugging thresholds.
+
+    `P95`
+    :   95th percentile of normalized violation $v$ over the region $R$.
+        Good 'typical tail' signal.
+
+    `P99`
+    :   99th percentile of normalized violation $v$ over $R$. Good default strictness knob.
+
+    `P999`
+    :   99.9th percentile of normalized violation $v$ over $R$.
+        Use when you want very low false-pass rate.
+
+    `REL_L1`
+    :   $\lVert       ext{tgt} -      ext{ref} 
+Vert_1 / (\lVert        ext{ref} 
+Vert_1 + \epsilon)$ over $R$.
+        Scale-free; good for catching broad shifts.
+
+    `REL_L2`
+    :   $\lVert       ext{tgt} -      ext{ref} 
+Vert_2 / (\lVert        ext{ref} 
+Vert_2 + \epsilon)$ over $R$.
+        Common default for 'overall closeness'.
+
+    `REL_LINF`
+    :   $\lVert       ext{tgt} -      ext{ref} 
+Vert_\infty / (\lVert   ext{ref} 
+Vert_\infty + \epsilon)$ over $R$.
+        Sensitive to worst-case relative deviation.
+
+    `RMSE`
+    :   $\sqrt{       ext{mean}((     ext{tgt} -      ext{ref})^2)}$ over $R$ (raw units).
+        More sensitive to large outliers than $       ext{MEAN\_ABS\_ERR}$.
+
+    `TOPK_OVERLAP`
+    :   Top-$k$ index agreement between $     ext{ref}$ and $ ext{tgt}$ scores (requires parameter $k$).
+        Typically overlap/Jaccard per row.
+
+    ### Methods
+
+    `eq(self, other: int | float) ‑> jaxis.dsl.ast.MetricExpr`
+    :
+
+    `ne(self, other: int | float) ‑> jaxis.dsl.ast.MetricExpr`
+    :
+
+`MetricExpr(metric: ForwardRef('Metric'), comparison_operator: ForwardRef('ComparisonOperator'), value: ForwardRef('int | float'))`
+:   MetricExpr(metric, comparison_operator, value)
+
+    ### Ancestors (in MRO)
+
+    * builtins.tuple
+
+    ### Instance variables
+
+    `comparison_operator: jaxis.dsl.ast.ComparisonOperator`
+    :   Alias for field number 1
+
+    `metric: jaxis.dsl.ast.Metric`
+    :   Alias for field number 0
+
+    `value: int | float`
+    :   Alias for field number 2
+
+    ### Methods
+
+    `evaluate(self, metrics: Mapping[Metric, float]) ‑> bool`
+    :

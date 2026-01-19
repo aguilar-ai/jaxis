@@ -1,0 +1,71 @@
+---
+title: Triangular Dependent
+description: Check causal/prefix-safe dependence along a sequence axis.
+---
+
+# `is_triangular_dependent`
+
+Triangular dependence (causal / temporal dependence) means output position `t` may depend
+on inputs at positions `<= t`, but not on positions `> t`.
+
+## Imports
+
+```py copy
+from jaxis.semantics import (
+  is_triangular_dependent,
+  is_triangular_dependent_trials,
+)
+```
+
+## Signatures (simplified)
+
+```py
+is_triangular_dependent(
+  fn,
+  *,
+  rng=...,
+  input_to_output_pos=...,
+  test_spec=...,
+  atol=...,
+  rtol=...,
+  dtype=...,
+) -> bool
+
+is_triangular_dependent_trials(
+  fn,
+  trials=...,
+  *,
+  rng=...,
+  input_to_output_pos=...,
+  test_spec=...,
+  atol=...,
+  rtol=...,
+  dtype=...,
+) -> TestState
+```
+
+`input_to_output_pos` is only needed if your function changes sequence length (pooling,
+striding, etc.). It maps an input position to the corresponding output position.
+
+## Example
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import is_triangular_dependent_trials
+
+
+def cumsum(x):
+  return jnp.cumsum(x, axis=-1)
+
+
+fn = DeferredCall(
+  cumsum,
+  input_spec=("x", (8, 128), -1),
+  output_spec=-1,
+)
+
+state = is_triangular_dependent_trials(fn, trials=24)
+print(state.passed)
+```

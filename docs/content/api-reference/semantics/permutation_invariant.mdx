@@ -1,0 +1,57 @@
+---
+title: Permutation Invariant
+description: Check that permutations do not change the output.
+---
+
+# `is_permutation_invariant`
+
+Permutation invariance means permuting the input along an axis does not change the output
+at all.
+
+## Imports
+
+```py copy
+from jaxis.semantics import (
+  is_permutation_invariant,
+  is_permutation_invariant_trials,
+)
+```
+
+## Signatures (simplified)
+
+```py
+is_permutation_invariant(fn, *, rng=..., test_spec=..., atol=..., rtol=..., dtype=...) -> bool
+is_permutation_invariant_trials(
+  fn,
+  trials=...,
+  *,
+  rng=...,
+  test_spec=...,
+  atol=...,
+  rtol=...,
+  dtype=...,
+) -> TestState
+```
+
+## Example
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import is_permutation_invariant_trials
+
+
+def sum_over_axis(x):
+  return jnp.sum(x, axis=-1)
+
+
+fn = DeferredCall(
+  sum_over_axis,
+  input_spec=("x", (32, 128), -1),
+  output_spec=None,  # scalar per batch element
+)
+
+state = is_permutation_invariant_trials(fn, trials=24)
+print(state.passed)
+```

@@ -1,0 +1,153 @@
+---
+title: Designing A Testing Strategy
+description: A guide on how to design a testing strategy for your own usecases.
+---
+
+import { FloatingPointAssociativity } from "../components/floating-point-associativity";
+
+# 
+
+Given a function, $f: \mathcal{X} \to \mathcal{Y}$ where $\mathcal{X} \subseteq 
+\mathbb{R}^{d_1 \times \cdots \times d_n}$ and $\mathcal{Y} \subseteq \mathbb{R}^{e_1 
+\times \cdots \times e_m}$, the naive approach to testing the function's implementation 
+is:
+1. Generate a random input $x \in \mathcal{X}$.
+2. Apply a transformation $x' = T(x)$ that the property should be invariant or equivariant
+to.
+3. Compute the expected relationship between $f(x)$ and $f(x')$.
+4. Verify via element-wise equality.
+
+This produces a convenient binary pass/fail check. However, it also has several failure
+modes.
+
+## GPUs Violate Intuition
+
+Floating point addition and multiplication are not truly associative because rounding
+happens at each step. Which leads us to this very counterintuitive scenario:
+
+$$
+(a + b) + c \neq a + (b + c)
+$$
+
+Floating point values form a discrete grid. Around any magnitude $x$, there's a smallest
+increment you can represent. So arithmetic is effectively:
+
+- Compute the exact real result.
+- Then round to the nearest representable grid point.
+
+The effect of this compounds as the numbers involved in an operation become further apart.
+When a small number is added to a large one, for instance, the grid is no longer capable
+of accomodating the smaller number and it seems as though the operation never happened.
+
+Of course, GPUs don't violate associativity because they're GPUs; they simply expose it
+very often because they *change the order of operations* in the interest of parallelism. 
+The exact grouping can vary between runs and is not deterministic. This is only one source 
+of non-determinism in GPUs; there are many other sources such as fused kernels, cache, 
+tiling, etc. Approximate equality begins to seem like a reasonable compromise.
+
+## Outliers Are Weak Links
+
+When using approximate equality, tests often fail solely because outliers are present 
+in the output due to unpredictable variation in the execution from sources such as those 
+mentioned above. Programmers are incentivized to loosen error tolerances in until the 
+tests that should pass do so.
+
+But tolerances loose enough to stop detecting real regressions cease to be meaningful.
+We end up sidestepping what we _actually_ care about. Training dynamics depend on 
+_holistic_ properties. If you picture your function as manipulating some higher 
+dimensional object, what matters is the _geometry_ of the situation, not surface
+irregularities. These manifest in various ways: the norm of a gradient, the direction of a
+gradient, the distribution of logits or probabilities, mean/variance after normalisation.
+
+Using both relative and absolute tolerance doesn't help much. Near zero, relative error 
+explodes, so you end up relying on absolute tolerance. For large-magnitude outputs, 
+relative tolerance dominates and may permit large absolute deviations. An array can fail a 
+misguided 
+[`allclose`](https://docs.jax.dev/en/latest/_autosummary/jax.numpy.allclose.html) 
+call but be essentially identical with the "correct" one for training-relevant measures.
+
+## Testing as an Exercise With Multivariate Outcomes
+
+Conventional testing has the convenience of binary outcomes. Property-based testing in 
+this domain does not. Jaxis approaches this by treating testing as an 
+exercise with a multivariate outcome.
+
+### Quantile-Based Error Instead of Max Error
+
+Rather than making "all elements must pass a necessarily arbitrary threshold of error" 
+the sole criterion for success, we use p99/p99.9, relative error and a separate bound on 
+max error. This prevents one outlier from forcing huge tolerances on your test suite.
+
+### Norms & Directions
+
+To continue our visual metaphor of manipulation of higher dimensional objects, machine 
+learning is very often more susceptive to "wrong direction" or "too far" rather than to 
+small per-element deviations. We use the following to capture this with measures like norm
+ratios and cosine similarity.
+
+### Distributional Properties
+
+Tensors are effectively bundles of information undergoing a sequence of transformations. 
+We must be sensitive to transformations that cause significant loss of information. We 
+measure this through relative entropy, agreement of top-k indices, and mean/variance/skew 
+of elements. These most directly capture what affects critical aspects of a successful 
+training run, like gradient signal.
+
+## Test Design
+
+Using Jaxis requires careful thought about your priorities for each function under test.
+These priorities determine which composition of checks to use. Jaxis provides what might
+generously be called a DSL for composing a comprehensive specification. See [the DSL 
+reference](/reference/dsl) for more details.
+
+### Composing Metrics
+
+Metrics can be composed using Python's `&` (AND) and `|` (OR) operators to create complex 
+test conditions. Here are some examples:
+
+#### Example 1: Tail Percentile with Outlier Cap
+
+Use a strict tail percentile check combined with a looser maximum cap to handle outliers:
+
+```python
+from jaxis.dsl.ast import Metric
+
+# 99.9% of elements should be within tolerance, but allow a few outliers up to 3x tolerance
+condition = (Metric.P999 < 1.0) & (Metric.MAX < 3.0)
+```
+
+#### Example 2: Relative Error with Special-Value Check
+
+Combine relative error metrics with diagnostics to ensure no invalid values:
+
+```python
+# Overall relative error should be small, and no NaN/Inf values allowed
+condition = (Metric.REL_L2 < 1e-4) & (Metric.NUM_NONFINITE == 0)
+```
+
+#### Example 3: Gradient Direction Check
+
+For gradient-based functions, check both direction (cosine similarity) and magnitude:
+
+```python
+# Gradient direction should be similar, and relative magnitude should be reasonable
+condition = (Metric.COSINE_DISTANCE < 0.01) & (Metric.REL_L2 < 0.1)
+```
+
+#### Example 4: Distributional Similarity
+
+For probability outputs, use distributional metrics:
+
+```python
+# Use symmetric JS divergence for probability distributions
+condition = (Metric.JS_DIVERGENCE < 0.1) & (Metric.NUM_NAN == 0)
+```
+
+## Additional Resources
+
+- [Metrics](/metrics) for the underlying error and similarity measures.
+- [Composing Metrics](/composing-metrics) for turning priorities into test specs.
+- [Concepts](/concepts) for defaults like tolerances and trial counts.
+- [Defining Semantic Properties](/semantic-properties) for the properties these tests
+  validate.
+- [Interpreting Results](/semantic-properties/interpreting-results) to debug failures.

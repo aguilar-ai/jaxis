@@ -1,0 +1,88 @@
+---
+title: Elementwise Independent
+description: 
+---
+
+import ElementwiseIndependent from "@/components/elementwise-independent";
+
+# Elementwise Independent
+
+_Also known as Diagonal Equivariance._
+
+<ElementwiseIndependent />
+
+$$
+\forall\, i \ne j : \frac{\partial y_i}{\partial x_j} = 0
+$$
+
+Elementwise Independence means that each output depends only on its corresponding
+input, and changing one input affects only its own output and nothing else.
+
+A function f: $X^n \to Y^n$ satisfies Elementwise Independence if there exists a function
+$g: X \to Y$ such that:
+
+$$
+f(x₁, x₂, ..., xₙ) = (g(x₁), g(x₂), ..., g(xₙ))
+$$
+
+Or equivalently, $f(x)ᵢ = g(xᵢ)$ for all $i$.
+
+You can also think of this as "Diagonal Equivariance." The term "diagonal" refers to
+the Jacobian of the function: for a function $f$ mapping $n$ inputs to $n$ outputs, the
+Jacobian is an $n \times n$ matrix where the $(i, j)$ entry measures how output $i$ 
+depends on input $j$ ($\frac{\partial y_i}{\partial x_j}$). When each input only affects 
+its own corresponding output, all off-diagonal entries are zero — meaning output $i$ does 
+not depend on input $j$ when $i \neq j$. Only the diagonal entries can be non-zero.
+
+The "equivariance" part highlights that this property is preserved under permutations: if 
+you permute the inputs, the outputs are permuted in the same way. The function $f$ 
+maintains the correspondence between input and output positions.
+
+## Usage
+
+Use the helpers exported from `jaxis.semantics` to probe an axis or tensor-valued
+function. `is_elementwise_independent` performs a single randomized trial and returns a
+boolean, while `is_elementwise_independent_trials` repeats the perturbation experiment and
+returns a `TestState` showing whether every trial passed.
+
+Refer to
+[Interpreting Results](/semantic-properties/interpreting-results) to understand the
+outcome that comes back.
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import (
+  is_elementwise_independent,
+  is_elementwise_independent_trials,
+)
+
+
+def relu(x):
+  return jnp.maximum(x, 0.0)
+
+
+relu_fn = DeferredCall(
+  relu,
+  input_spec=("x", (32, 512), -1),  # the last axis must stay elementwise
+  output_spec=-1,
+)
+
+assert is_elementwise_independent(relu_fn)
+state = is_elementwise_independent_trials(relu_fn, trials=32)
+print(state.passed)  # True when every randomized perturbation respected the property
+```
+
+Elementwise operations (activation functions, token-wise losses, etc.) typically pass the
+predicate, while anything that mixes coordinates (sums, means, normalizations) will fail.
+Use failures as an indicator that the axis you are treating as "batch-like" is being
+coupled somewhere in your pipeline.
+
+## Additional Resources
+
+- [Permutation Equivariant](/semantic-properties/permutation-equivariant) for the
+  permutation-preserving superset of this property.
+- [Mask Invariant](/semantic-properties/mask-invariant) for masked data flows.
+- [Property Reference](/semantic-properties/property-reference) to compare properties.
+- [Interpreting Results](/semantic-properties/interpreting-results) to debug failures.

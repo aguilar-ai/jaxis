@@ -1,0 +1,66 @@
+---
+title: Elementwise Independent
+description: Check that outputs only depend on their corresponding inputs.
+---
+
+# `is_elementwise_independent`
+
+Elementwise independence (also called diagonal dependence) means that each output element
+depends only on its corresponding input element along the tested axis.
+
+## Imports
+
+```py copy
+from jaxis.semantics import (
+  is_elementwise_independent,
+  is_elementwise_independent_trials,
+)
+```
+
+## Signatures (simplified)
+
+```py
+is_elementwise_independent(
+  fn,
+  *,
+  rng=...,
+  test_spec=...,
+  atol=...,
+  rtol=...,
+  dtype=...,
+) -> bool
+
+is_elementwise_independent_trials(
+  fn,
+  trials=...,
+  *,
+  rng=...,
+  test_spec=...,
+  atol=...,
+  rtol=...,
+  dtype=...,
+) -> TestState
+```
+
+## Example
+
+```py copy
+import jax.numpy as jnp
+
+from jaxis.fn import DeferredCall
+from jaxis.semantics import is_elementwise_independent_trials
+
+
+def relu(x):
+  return jnp.maximum(x, 0.0)
+
+
+fn = DeferredCall(
+  relu,
+  input_spec=("x", (128, 32), 0),
+  output_spec=0,
+)
+
+state = is_elementwise_independent_trials(fn, trials=24)
+print(state.passed)
+```
